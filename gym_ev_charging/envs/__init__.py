@@ -1,1 +1,1 @@
-from gym_foo.envs.ev_single_env import EVDummyEnv
+from gym_ev_charging.envs.dummy_env import DummyEnv
