@@ -3,7 +3,7 @@ from gym import error, spaces, utils
 # from gym.utils import seeding
 import numpy as np
 
-class DummyEnv(gym.Env):
+class EVChargingEnv(gym.Env):
     """The main OpenAI Gym class. It encapsulates an environment with
     arbitrary behind-the-scenes dynamics. An environment can be
     partially or fully observed.
@@ -44,7 +44,7 @@ class DummyEnv(gym.Env):
         self.action_space = gym.spaces.Discrete(2)
         self.state = np.zeros(10)
         self.observation_space = self.state
-        self.reward_range = (-10, 1000)
+        self.reward_range = (0, 1000)
         self.total_steps = 0
         self.max_state = 10
 
