@@ -1,12 +1,11 @@
 import gym
 import gym_ev_charging
-
-env = gym.make('dummy-v0')
+env = gym.make('ev-charging-v0')
 # env = gym.make('CartPole-v0')
 for i_episode in range(20):
     observation = env.reset()
-    for t in range(100):
-        env.render()
+    for t in range(1000):
+#        env.render()
         # print(observation)
         action = env.action_space.sample()
         observation, reward, done, info = env.step(action)

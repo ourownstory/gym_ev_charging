@@ -1,7 +1,7 @@
 import numpy as np
 from copy import deepcopy
 from toy_data import *
-from utils import *
+from gym_utils import *
 import config
 import gym
 from gym import error, spaces, utils
@@ -58,8 +58,8 @@ a
         
         #gym stuff 
         self.episode_over = False
-        self.action_space = gym.spaces.Box(low = 0, high = 1, shape = config.NUM_STATIONS, dtype = 0)
-        self.observation_space = self.state
+        self.action_space = gym.spaces.Tuple(tuple([spaces.Discrete(2) for __ in range(config.NUM_STATIONS)]))
+        self.observation_space = gym.spaces.Tuple(tuple([spaces.Discrete(2) for __ in range(48)]))
         self.total_steps = 0
 
         self.start_time = None
@@ -101,7 +101,7 @@ a
         """
         ob, reward = self.take_action(action) 
         episode_over = self.done
-        return ob, reward, episode_over, {}
+        return featurize_s(ob), reward, episode_over, {}
     
     def charge_car(self, station, new_station, charge_rate):
         is_car, des_char, per_char, curr_dur =  station['is_car'], station['des_char'], station['per_char'], station['curr_dur']
@@ -180,13 +180,28 @@ a
         self.state = initial_state
         return initial_state
 
+    # Called by take_action
+    # the three arguments are lists of the given values at each station
+    def reward(self, energy_charged, percent_charged, charging_powers):
+        charge_reward = sum(np.array(energy_charged) * (np.exp(percent_charged) - 1))  # sum [0, energy_charged*(e-1)] (~[0, 8.5])
+
+        elec_price = self.elec_price_data[self.get_current_state()['time'].to_pydatetime()]
+        elec_cost = sum(np.array(energy_charged) * elec_price * (np.exp(1) - 1))  # sum [0, energy_charged*(e-1)] (~[0, 8.5])
+
+        pow_violation = max(np.sum(charging_powers) - self.transformer_capacity, 0) / self.transformer_capacity
+        pow_penalty = np.exp(pow_violation * 12) - 1  # [0, e^(10*pow_violation) - 1]  (~[0, 20])
+        # print(charge_reward, elec_cost, pow_penalty)
+
+        return self.reward_weights[0] * charge_reward - self.reward_weights[1] * elec_cost - self.reward_weights[2] * pow_penalty
+
+    def get_current_state(self):
+        return self.state
+
     def sample_data(self):
         # self.charging_data = deepcopy(locations)
         self.elec_price_data = price
-
         valid_dates = self.total_charging_data.loc[self.total_charging_data.index[0]:self.total_charging_data.index[-1] - datetime.timedelta(hours=self.episode_length * self.time_step)].index
         self.start_time = valid_dates[self.random_state.choice(range(len(valid_dates)))].to_pydatetime()
-
         self.charging_data = sample_charging_data(self.total_charging_data, self.start_time, self.episode_length, self.time_step)
 
     def reset(self):
