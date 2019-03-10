@@ -58,8 +58,8 @@ a
         
         #gym stuff 
         self.episode_over = False
-        self.action_space = gym.spaces.Tuple(tuple([spaces.Discrete(2) for __ in range(config.NUM_STATIONS)]))
-        self.observation_space = gym.spaces.Tuple(tuple([spaces.Discrete(2) for __ in range(48)]))
+        self.action_space = gym.spaces.Discrete(len(config.action_map))
+        self.observation_space = gym.spaces.Tuple(tuple([spaces.Discrete(2) for __ in range(82)]))
         self.total_steps = 0
 
         self.start_time = None
@@ -99,9 +99,11 @@ a
                  However, official evaluations of your agent are not allowed to
                  use this for learning.
         """
-        ob, reward = self.take_action(action) 
+        #translate action from number to tuple
+        a = config.action_map[action]
+        ob, reward = self.take_action(a) 
         episode_over = self.done
-        return featurize_s(ob), reward, episode_over, {}
+        return config.featurize_s(ob), reward, episode_over, {}
     
     def charge_car(self, station, new_station, charge_rate):
         is_car, des_char, per_char, curr_dur =  station['is_car'], station['des_char'], station['per_char'], station['curr_dur']
@@ -209,7 +211,8 @@ a
         self.durations = []
         self.sample_data()
         self.state = self.get_initial_state()
-        return self.state
+        featurized_state = config.featurize_s(self.state)
+        return(featurized_state)
 
     def render(self, mode='human', close=False):
         pass
