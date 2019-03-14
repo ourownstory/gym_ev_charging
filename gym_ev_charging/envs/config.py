@@ -14,3 +14,5 @@ min_power = [0 for __ in range(NUM_STATIONS)]
 num_power_steps = [2 for __ in range(NUM_STATIONS)]
 actions = [np.linspace(min_power[i], max_power[i], num_power_steps[i]) for i in range(NUM_STATIONS)]
 action_map = {idx: a for idx, a in enumerate(itertools.product(*actions))}
+
+observation_dimension = 82

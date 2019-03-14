@@ -99,7 +99,7 @@ class PG(object):
 
         # discrete vs continuous action space
         self.discrete = isinstance(env.action_space, gym.spaces.Discrete)
-        #self.observation_dim = self.env.observation_space.shape[0]
+        self.observation_dim = self.env.observation_space.shape[0]
         self.action_dim = self.env.action_space.n if self.discrete else self.env.action_space.shape[0]
 
         self.lr = self.config.learning_rate
@@ -120,8 +120,8 @@ class PG(object):
         """
         #######################################################
         #########   YOUR CODE HERE - 8-12 lines.   ############
-        #self.observation_placeholder = tf.placeholder(tf.float32, shape = (None, self.observation_dim))
-        self.observation_placeholder = tf.placeholder(tf.float32, shape = (None, len(env.observation_space.spaces)))
+        self.observation_placeholder = tf.placeholder(tf.float32, shape = (None, self.observation_dim))
+        # self.observation_placeholder = tf.placeholder(tf.float32, shape = (None, env.observation_dimension))
         if self.discrete:
             self.action_placeholder = tf.placeholder(tf.int32, shape = (None,))
         else:
@@ -618,6 +618,9 @@ class PG(object):
 if __name__ == '__main__':
         config = get_config('cartpole', True) 
         env = gym.make('ev-charging-v0')
+        # TODO
+        # config_env = config.get_config('default')
+        # env.build(config_env)
         # train model
         model = PG(env, config)
         model.run()

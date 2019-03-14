@@ -1,13 +1,12 @@
-import numpy as np
-from copy import deepcopy
-from toy_data import *
-from gym_utils import *
-import config
-import gym
-from gym import error, spaces, utils
 # from gym.utils import seeding
-import numpy as np
 from copy import deepcopy
+
+import gym
+from gym import spaces
+
+from gym_ev_charging.envs import config
+from gym_utils import *
+from toy_data import *
 
 
 class EVChargingEnv(gym.Env):
@@ -47,19 +46,22 @@ a
     metadata = {'render.modes': ['human']}
 
     def __init__(self):
+        # TODO just init to zero
         self.num_stations = config.NUM_STATIONS
         self.episode_length = config.EPS_LEN
         self.time_step = config.TIME_STEP
         self.transformer_capacity = config.TRANSFORMER_CAPACITY
-        self.reward_weights = config.REWARD_WEIGHTS
-        self.total_charging_data = config.TOTAL_CHARGING_DATA
+        self.reward_weights = config.REWARD_WEIGHTS # completion, price, violation
+        self.total_charging_data = config.TOTAL_CHARGING_DATA # dataframe, to be sampled from
         self.total_elec_price_data=pd.DataFrame()
         self.random_state = np.random.RandomState(config.RAND_SEED)
+        self.observation_dimension = config.observation_dimension
         
         #gym stuff 
         self.episode_over = False
-        self.action_space = gym.spaces.Discrete(len(config.action_map))
-        self.observation_space = gym.spaces.Tuple(tuple([spaces.Discrete(2) for __ in range(82)]))
+        self.action_space = gym.spaces.Discrete(len(config.action_map)) # combination of decisions for all stations
+        # self.observation_space = gym.spaces.Tuple(tuple([spaces.Discrete(2) for __ in range(82)]))
+        self.observation_space = np.zeros(config.observation_dimension)
         self.total_steps = 0
 
         self.start_time = None
@@ -69,6 +71,10 @@ a
         self.done = False
         self.state = None
         self.reset()
+
+    def build(self, config):
+        # TODO actually init
+        pass
         
     def step(self, action):
         """
