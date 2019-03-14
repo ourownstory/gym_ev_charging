@@ -1,65 +1,48 @@
 # from gym.utils import seeding
+import datetime
 from copy import deepcopy
 
 import gym
+import gym_utils as utils
+import numpy as np
+import pandas as pd
+from data import toy_data
 from gym import spaces
+from gym_ev_charging.config_gym import get_config
 
-from gym_ev_charging.envs import config
-from gym_utils import *
-from toy_data import *
 
+# TODO create at proper location
+# config = get_config('default')
 
 class EVChargingEnv(gym.Env):
-    """The main OpenAI Gym class. It encapsulates an environment with
-    arbitrary behind-the-scenes dynamics. An environment can be
-    partially or fully observed.
-
-    The main API methods that users of this class need to know are:
-
-        step
-        reset
-        render
-        close
-        seed
-
-    When implementing an environment, override the following methods
-    in your subclass:
-
-        _step
-        _reset
-        _render
-        _close
-        _seed
-
-    And set the following attributes:
-a
-        action_space: The Space object corresponding to valid actions
-        observation_space: The Space object corresponding to valid observations
-        reward_range: A tuple corresponding to the min and max possible rewards
-
-    Note: a default reward range set to [-inf,+inf] already exists. Set it if you want a narrower range.
-
-    The methods are accessed publicly as "step", "reset", etc.. The
-    non-underscored versions are wrapper methods to which we may add
-    functionality over time.
     """
-    metadata = {'render.modes': ['human']}
+
+    """
+    # metadata = {'render.modes': ['human']}
 
     def __init__(self):
         # TODO just init to zero
+        pass
+
+    def build(self, config=None):
+        if config is None:
+            config = get_config('default')
+        self.config = config
+        # TODO actually init
         self.num_stations = config.NUM_STATIONS
         self.episode_length = config.EPS_LEN
         self.time_step = config.TIME_STEP
         self.transformer_capacity = config.TRANSFORMER_CAPACITY
-        self.reward_weights = config.REWARD_WEIGHTS # completion, price, violation
-        self.total_charging_data = config.TOTAL_CHARGING_DATA # dataframe, to be sampled from
-        self.total_elec_price_data=pd.DataFrame()
+        self.reward_weights = config.REWARD_WEIGHTS  # completion, price, violation
+        self.total_charging_data = utils.load_charging_data(config.path_data, config.NUM_STATIONS, config.TIME_STEP)
+        # self.total_charging_data = config.TOTAL_CHARGING_DATA # dataframe, to be sampled from
+        self.total_elec_price_data = pd.DataFrame()
         self.random_state = np.random.RandomState(config.RAND_SEED)
         self.observation_dimension = config.observation_dimension
-        
-        #gym stuff 
+
+        # gym stuff
         self.episode_over = False
-        self.action_space = gym.spaces.Discrete(len(config.action_map)) # combination of decisions for all stations
+        self.action_space = gym.spaces.Discrete(len(config.action_map))  # combination of decisions for all stations
         # self.observation_space = gym.spaces.Tuple(tuple([spaces.Discrete(2) for __ in range(82)]))
         self.observation_space = np.zeros(config.observation_dimension)
         self.total_steps = 0
@@ -71,10 +54,8 @@ a
         self.done = False
         self.state = None
         self.reset()
-
-    def build(self, config):
-        # TODO actually init
         pass
+
         
     def step(self, action):
         """
@@ -106,10 +87,10 @@ a
                  use this for learning.
         """
         #translate action from number to tuple
-        a = config.action_map[action]
+        a = self.config.action_map[action]
         ob, reward = self.take_action(a) 
         episode_over = self.done
-        return config.featurize_s(ob), reward, episode_over, {}
+        return utils.featurize_s(ob), reward, episode_over, {}
     
     def charge_car(self, station, new_station, charge_rate):
         is_car, des_char, per_char, curr_dur =  station['is_car'], station['des_char'], station['per_char'], station['curr_dur']
@@ -207,17 +188,17 @@ a
 
     def sample_data(self):
         # self.charging_data = deepcopy(locations)
-        self.elec_price_data = price
+        self.elec_price_data = toy_data.price
         valid_dates = self.total_charging_data.loc[self.total_charging_data.index[0]:self.total_charging_data.index[-1] - datetime.timedelta(hours=self.episode_length * self.time_step)].index
         self.start_time = valid_dates[self.random_state.choice(range(len(valid_dates)))].to_pydatetime()
-        self.charging_data = sample_charging_data(self.total_charging_data, self.start_time, self.episode_length, self.time_step)
+        self.charging_data = utils.sample_charging_data(self.total_charging_data, self.start_time, self.episode_length, self.time_step)
 
     def reset(self):
         self.done = False
         self.durations = []
         self.sample_data()
         self.state = self.get_initial_state()
-        featurized_state = config.featurize_s(self.state)
+        featurized_state = utils.featurize_s(self.state)
         return(featurized_state)
 
     def render(self, mode='human', close=False):

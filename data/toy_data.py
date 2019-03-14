@@ -1,6 +1,7 @@
 import datetime
 import numpy as np
 
+
 loc1 = [[datetime.datetime(2019, 1, 1, 19, 15), 20, 5],
         [datetime.datetime(2019, 1, 1, 16, 0), 10, 2],
         [datetime.datetime(2019, 1, 1, 12, 15), 8.0, 3]
