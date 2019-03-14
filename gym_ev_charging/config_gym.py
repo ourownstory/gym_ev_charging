@@ -3,8 +3,9 @@ import itertools
 import os
 
 
-class default_config:
+class config_default:
     def __init__(self):
+        self.env_name = "ev-charging-v0"
         self.EPS_LEN = 4 * 24 * 7
         self.NUM_STATIONS = 3
         self.TIME_STEP = 0.25
@@ -23,13 +24,14 @@ class default_config:
         self.observation_dimension = 82
 
 
-class test_config(default_config):
+class config_test(config_default):
     def __init__(self):
         super().__init__()
+        # self.env_name = "dummy-v0"
 
 
 def get_config(config_name):
     if config_name == 'default':
-        return default_config()
+        return config_default()
     elif config_name == 'test':
-        return test_config()
+        return config_test()
