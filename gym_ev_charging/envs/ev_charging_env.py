@@ -140,7 +140,11 @@ class EVChargingEnv(gym.Env):
             energy_charged.append(energy_added)
             stations.append(new_station)
         new_state['stations'] = stations
-        reward = self.reward(energy_charged, percent_charged, a)
+        reward = self.reward(
+            energy_charged=energy_charged,
+            percent_charged=percent_charged,
+            charge_empty_first=self.config.charge_empty_first
+        )
         self.state = new_state
         self.done = sum([len(loc) for loc in self.charging_data]) + sum(self.durations) == 0
         return new_state, reward
@@ -171,7 +175,7 @@ class EVChargingEnv(gym.Env):
 
     # Called by take_action
     # the three arguments are lists of the given values at each station
-    def reward(self, energy_charged, percent_charged, charging_powers):
+    def reward_exp(self, energy_charged, percent_charged, charging_powers):
         charge_reward = sum(np.array(energy_charged) * (np.exp(percent_charged) - 1))  # sum [0, energy_charged*(e-1)] (~[0, 8.5])
 
         elec_price = self.elec_price_data[self.get_current_state()['time'].to_pydatetime()]
@@ -182,6 +186,26 @@ class EVChargingEnv(gym.Env):
         # print(charge_reward, elec_cost, pow_penalty)
 
         return self.reward_weights[0] * charge_reward - self.reward_weights[1] * elec_cost - self.reward_weights[2] * pow_penalty
+
+    # Called by take_action
+    def reward(self, energy_charged, percent_charged, charge_empty_first):
+        if charge_empty_first:
+            charge_influence = 1.5 - np.array(percent_charged)
+        else:
+            charge_influence = 1.0
+
+        charge_reward = np.sum(energy_charged * charge_influence) / self.num_stations  # ~[0, 3.3-10]
+
+        elec_price = self.elec_price_data[self.get_current_state()['time'].to_pydatetime()]
+        elec_cost = np.sum(energy_charged) * elec_price / self.num_stations
+
+        # TODO: if elec_price is inverse of solar output, increase transformer cap relative to solar generation
+        pow_violation = max(np.sum(energy_charged) - self.transformer_capacity, 0) / self.transformer_capacity
+        pow_penalty = np.exp(pow_violation * 3) - 1  # [0, e^(3*pow_violation) - 1]  (~[0, 20]) for cap_factor 0.5
+
+        reward = [charge_reward, -elec_cost, -pow_penalty]
+        reward = sum([r*w for r, w in zip(reward, self.reward_weights)]) / sum(self.reward_weights)
+        return reward
 
     def get_current_state(self):
         return self.state
