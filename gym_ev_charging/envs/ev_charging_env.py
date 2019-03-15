@@ -188,6 +188,7 @@ class EVChargingEnv(gym.Env):
 
     def sample_data(self):
         # self.charging_data = deepcopy(locations)
+        # TODO don't call toy_data here but self.total_elec_price_data
         self.elec_price_data = toy_data.price
         valid_dates = self.total_charging_data.loc[self.total_charging_data.index[0]:self.total_charging_data.index[-1] - datetime.timedelta(hours=self.episode_length * self.time_step)].index
         self.start_time = valid_dates[self.random_state.choice(range(len(valid_dates)))].to_pydatetime()
