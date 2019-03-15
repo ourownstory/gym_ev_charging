@@ -31,6 +31,8 @@ class EVChargingEnv(gym.Env):
         self.num_stations = config.NUM_STATIONS
         self.episode_length = config.EPS_LEN
         self.time_step = config.TIME_STEP
+        self.max_power = config.max_power
+        self.min_power = config.min_power
         self.transformer_capacity = config.TRANSFORMER_CAPACITY
         self.reward_weights = config.REWARD_WEIGHTS  # completion, price, violation
         self.total_charging_data = utils.load_charging_data(config.path_data, config.NUM_STATIONS, config.TIME_STEP)
@@ -92,7 +94,8 @@ class EVChargingEnv(gym.Env):
         a = self.config.action_map[action]
         new_state, reward = self.take_action(a) 
         episode_over = self.done
-        return utils.featurize_s(new_state), reward, episode_over, new_state
+        info = {'new_state' : new_state, 'charge_rates' : a}
+        return utils.featurize_s(new_state), reward, episode_over, info
     
     def charge_car(self, station, new_station, charge_rate):
         is_car, des_char, per_char, curr_dur =  station['is_car'], station['des_char'], station['per_char'], station['curr_dur']
