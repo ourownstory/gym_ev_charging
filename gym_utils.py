@@ -48,7 +48,7 @@ def load_charging_data(charging_data_file, num_stations, time_step):
 
     # # iterate: split ports, create tuples
     # station_list = []
-    # for this_id, _ in zip(station_id, range(num_stations)):
+    # for this_id, _ in zip(station_id,range(num_stations)):
     #     df_id = df[df["Port ID"] == this_id]
     #     df_id = df_id.drop(columns=["Port ID"])
     #     station_list.append(list(df_id.itertuples(index=False, name=None)))

@@ -7,6 +7,7 @@ class config_default:
     def __init__(self):
         self.env_name = "ev-charging-v0"
         self.EPS_LEN = 4 * 24 * 7
+        self.EVAL_EPS_LEN = 4*24*30
         self.NUM_STATIONS = 3
         self.TIME_STEP = 0.25
         self.TRANSFORMER_CAPACITY = 6.6 * self.NUM_STATIONS * 0.80

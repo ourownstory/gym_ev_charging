@@ -47,6 +47,7 @@ class EVChargingEnv(gym.Env):
         self.observation_space = np.zeros(config.observation_dimension)
         self.total_steps = 0
 
+        self.evaluation_mode = False
         self.start_time = None
         self.charging_data = None
         self.elec_price_data = None
@@ -54,7 +55,6 @@ class EVChargingEnv(gym.Env):
         self.done = False
         self.state = None
         self.reset()
-        pass
 
         
     def step(self, action):
@@ -88,9 +88,9 @@ class EVChargingEnv(gym.Env):
         """
         #translate action from number to tuple
         a = self.config.action_map[action]
-        ob, reward = self.take_action(a) 
+        new_state, reward = self.take_action(a) 
         episode_over = self.done
-        return utils.featurize_s(ob), reward, episode_over, {}
+        return utils.featurize_s(new_state), reward, episode_over, new_state
     
     def charge_car(self, station, new_station, charge_rate):
         is_car, des_char, per_char, curr_dur =  station['is_car'], station['des_char'], station['per_char'], station['curr_dur']
@@ -191,7 +191,12 @@ class EVChargingEnv(gym.Env):
         self.elec_price_data = toy_data.price
         valid_dates = self.total_charging_data.loc[self.total_charging_data.index[0]:self.total_charging_data.index[-1] - datetime.timedelta(hours=self.episode_length * self.time_step)].index
         self.start_time = valid_dates[self.random_state.choice(range(len(valid_dates)))].to_pydatetime()
-        self.charging_data = utils.sample_charging_data(self.total_charging_data, self.start_time, self.episode_length, self.time_step)
+        if not self.evaluation_mode:
+            self.charging_data = utils.sample_charging_data(self.total_charging_data, self.start_time, self.episode_length, self.time_step)
+        else:
+            self.start_time = valid_dates[0]
+            self.episode_length = self.config.EVAL_EPS_LEN
+            self.charging_data = utils.sample_charging_data(self.total_charging_data, self.start_time, self.episode_length, self.time_step)
 
     def reset(self):
         self.done = False
