@@ -28,14 +28,12 @@ class EVChargingEnv(gym.Env):
         if config is None:
             config = get_config('default')
         self.config = config
-        # TODO actually init
         self.num_stations = config.NUM_STATIONS
         self.episode_length = config.EPS_LEN
         self.time_step = config.TIME_STEP
         self.transformer_capacity = config.TRANSFORMER_CAPACITY
         self.reward_weights = config.REWARD_WEIGHTS  # completion, price, violation
         self.total_charging_data = utils.load_charging_data(config.path_data, config.NUM_STATIONS, config.TIME_STEP)
-        # self.total_charging_data = config.TOTAL_CHARGING_DATA # dataframe, to be sampled from
         self.total_elec_price_data = pd.DataFrame()
         self.random_state = np.random.RandomState(config.RAND_SEED)
         self.observation_dimension = config.observation_dimension
@@ -43,19 +41,19 @@ class EVChargingEnv(gym.Env):
         # gym stuff
         self.episode_over = False
         self.action_space = gym.spaces.Discrete(len(config.action_map))  # combination of decisions for all stations
-        # self.observation_space = gym.spaces.Tuple(tuple([spaces.Discrete(2) for __ in range(82)]))
         self.observation_space = np.zeros(config.observation_dimension)
         self.total_steps = 0
 
+        # for ech episode
         self.start_time = None
         self.charging_data = None
         self.elec_price_data = None
         self.durations = []
         self.done = False
         self.state = None
-        self.reset()
-        pass
 
+        # get initial state
+        self.reset()
         
     def step(self, action):
         """
@@ -86,6 +84,7 @@ class EVChargingEnv(gym.Env):
                  However, official evaluations of your agent are not allowed to
                  use this for learning.
         """
+
         #translate action from number to tuple
         a = self.config.action_map[action]
         ob, reward = self.take_action(a) 
@@ -113,7 +112,8 @@ class EVChargingEnv(gym.Env):
         new_station['per_char'] = 0
         new_station['curr_dur'] = 0
     
-    def take_action(self, a): 
+    def take_action(self, a):
+        # print(self.state)
         new_state = {}
         time = self.state['time']
         new_time = time + datetime.timedelta(hours=self.time_step)
@@ -190,9 +190,12 @@ class EVChargingEnv(gym.Env):
         # self.charging_data = deepcopy(locations)
         # TODO don't call toy_data here but self.total_elec_price_data
         self.elec_price_data = toy_data.price
-        valid_dates = self.total_charging_data.loc[self.total_charging_data.index[0]:self.total_charging_data.index[-1] - datetime.timedelta(hours=self.episode_length * self.time_step)].index
+        max_start_datetime = self.total_charging_data.index[-1] - datetime.timedelta(hours=self.episode_length * self.time_step)
+        valid_dates = self.total_charging_data.loc[self.total_charging_data.index[0]:max_start_datetime].index
         self.start_time = valid_dates[self.random_state.choice(range(len(valid_dates)))].to_pydatetime()
-        self.charging_data = utils.sample_charging_data(self.total_charging_data, self.start_time, self.episode_length, self.time_step)
+        self.charging_data = utils.sample_charging_data(
+            self.total_charging_data, self.start_time, self.episode_length, self.time_step
+        )
 
     def reset(self):
         self.done = False

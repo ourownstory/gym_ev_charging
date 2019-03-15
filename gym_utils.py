@@ -2,6 +2,15 @@ import pandas as pd
 import numpy as np
 import datetime
 
+maps = {}
+maps["hod"] = [lambda x: x, 24]
+maps["dow"] = [lambda x: x, 7]
+maps["is_car"] = [lambda x: int(x), 2]
+maps["des_char"] = [lambda x: np.digitize(x, [15, 30, 45, 60]), 5]
+maps["per_char"] = [lambda x: np.digitize(x, [20, 40, 60, 80]), 5]
+maps["curr_dur"] = [lambda x: np.digitize(x, [1, 2, 3, 4]), 5]
+
+
 def load_elec_price_data(elec_price_data_file, time_step):
     """
     Load all electricity price data
@@ -15,6 +24,7 @@ def load_elec_price_data(elec_price_data_file, time_step):
     # df - df.resample(str(time_step) + 'H').sum()
     return df
 
+
 def load_charging_data(charging_data_file, num_stations, time_step):
     """
     Load all charging data
@@ -27,8 +37,7 @@ def load_charging_data(charging_data_file, num_stations, time_step):
     df = df[["Port ID", "Station Start Time (Local)", "Energy (kWh)", "Session Time (secs)"]]
 
     # Ports
-    station_id = df["Port ID"].unique()
-    #     print(station_id)
+    station_id = sorted([int(x) for x in df["Port ID"].unique()])
 
     # convert to datetimes and sort
     df['Station Start Time (Local)'] = df['Station Start Time (Local)'].apply(
@@ -55,6 +64,7 @@ def load_charging_data(charging_data_file, num_stations, time_step):
     #
     # return station_list
 
+
 def sample_charging_data(charging_data, start_time, episode_length, time_step):
     df = charging_data.loc[start_time:start_time + datetime.timedelta(hours=episode_length * time_step)]
     # iterate: split ports, create tuples
@@ -67,22 +77,17 @@ def sample_charging_data(charging_data, start_time, episode_length, time_step):
 
     return station_list
 
+
 def sample_elec_price_data(elec_price_data, start_time, episode_length, time_step):
     pass
 
-maps = {}
-maps["hod"] = [lambda x: x, 24]
-maps["dow"] = [lambda x: x, 7]
-maps["is_car"] = [lambda x: int(x), 2]
-maps["des_char"] = [lambda x: np.digitize(x, [15, 30, 45, 60]), 5]
-maps["per_char"] = [lambda x: np.digitize(x, [20, 40, 60, 80]), 5]
-maps["curr_dur"] = [lambda x: np.digitize(x, [1, 2, 3, 4]), 5]
 
 def one_hot(value, data):
     global maps
     output = [0]*maps[data][1]
     output[maps[data][0](value)] = 1
     return output
+
 
 def featurize_s(s):
     hod = one_hot(s['time'].hour, "hod")
