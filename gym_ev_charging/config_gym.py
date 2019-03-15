@@ -8,7 +8,8 @@ class config_default:
         self.ENV_NAME = None
         self.RAND_SEED = 12345
         self.EPS_LEN = 4 * 24 * 7
-        self.NUM_STATIONS = 10
+        self.EVAL_EPS_LEN = 4*24*30
+        self.NUM_STATIONS = 3
         self.TIME_STEP = 0.25
         self.MAX_POWER = 6.6
         self.MIN_POWER = 0.0
