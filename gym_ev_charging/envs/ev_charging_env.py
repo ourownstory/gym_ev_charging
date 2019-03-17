@@ -103,6 +103,7 @@ class EVChargingEnv(gym.Env):
             action = self.action_map[action]
 
         new_state, reward = self.take_action(action)
+        #translate action from number to tuple
         episode_over = self.done
         info = {'new_state' : new_state, 'charge_rates' : action}
         return self.featurize(new_state), reward, episode_over, info
