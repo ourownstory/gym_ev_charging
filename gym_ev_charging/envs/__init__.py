@@ -1,1 +1,2 @@
 from gym_ev_charging.envs.ev_charging_env import EVChargingEnv
+from gym_ev_charging.envs.ev_charging_env_vec import EVChargingEnvVec

@@ -10,7 +10,7 @@ class config_default:
         self.EPS_LEN = 4 * 24
         self.EVAL_EPS_LEN = 4*24
 
-        self.NUM_STATIONS = 5
+        self.NUM_STATIONS = 1
         self.TIME_STEP = 0.25
         self.MAX_POWER = 6.6
         self.MIN_POWER = 0.0
@@ -38,8 +38,15 @@ class config_discrete(config_default):
         super().__init__()
         self.ENV_NAME = "ev-charging-v0"
 
+class config_discrete_vec(config_default):
+    def __init__(self):
+        super().__init__()
+        self.ENV_NAME = "ev-charging-v1"
+
 
 def get_config(config_name):
     if config_name == 'discrete':
         return config_discrete()
+    if config_name == 'discrete_vec':
+        return config_discrete_vec()
 
