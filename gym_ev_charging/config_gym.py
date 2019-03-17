@@ -1,32 +1,25 @@
-import numpy as np
-import itertools
 import os
 
 
 class config_default:
     def __init__(self):
         self.ENV_NAME = None
-        self.RAND_SEED = 12345
-        self.EPS_LEN = 4 * 24
-        self.EVAL_EPS_LEN = 4*24
+        self.continuous_actions = None
+        self.discretize_obs = None
 
-        self.NUM_STATIONS = 1
+        self.RAND_SEED = 123
         self.TIME_STEP = 0.25
         self.MAX_POWER = 6.6
         self.MIN_POWER = 0.0
-        self.NUM_POWER_STEPS = 3  # [2, 10]
-        self.TRANSFORMER_LIMIT = 0.2  # [0, 1]
-        self.TRANSFORMER_CAPACITY = self.MAX_POWER * self.NUM_STATIONS * self.TRANSFORMER_LIMIT
-        self.REWARD_WEIGHTS = (1, 2, 7)
+        self.EPS_LEN = 4*24
+        self.EVAL_EPS_LEN = 4*24*30
 
-        self.charge_empty_factor = 0.1  # [0, 2]
-        self.solar_behind_meter = 1  # [0, (1 - TRANSFORMER_LIMIT) / TRANSFORMER_LIMIT]
+        self.NUM_STATIONS = 3
+        self.TRANSFORMER_LIMIT = 0.5  # [0, 1]
+        self.solar_behind_meter = 0  # [0, (1 - TRANSFORMER_LIMIT) / TRANSFORMER_LIMIT]
+        self.charge_empty_factor = 0  # [0, 2]
 
-        self.observation_dimension = 31 + 17*self.NUM_STATIONS
-        self.actions = [np.linspace(self.MIN_POWER, self.MAX_POWER, self.NUM_POWER_STEPS)
-                        for _ in range(self.NUM_STATIONS)]
-        self.action_map = {idx: a for idx, a in enumerate(itertools.product(*self.actions))}
-        # print(self.action_map)
+        self.REWARD_WEIGHTS = (1, 0, 10)
 
         self.data_file = "sessions_161718_95014_top10.csv"
         cwd = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -37,16 +30,38 @@ class config_discrete(config_default):
     def __init__(self):
         super().__init__()
         self.ENV_NAME = "ev-charging-v0"
+        self.continuous_actions = False
+        self.discretize_obs = True
+        self.NUM_POWER_STEPS = 2  # [2, 10]
 
-class config_discrete_vec(config_default):
+
+class config_dc(config_discrete):
     def __init__(self):
         super().__init__()
-        self.ENV_NAME = "ev-charging-v1"
+        self.discretize_obs = False
+
+
+class config_cont(config_default):
+    def __init__(self):
+        super().__init__()
+        self.ENV_NAME = "ev-charging-v0"
+        self.continuous_actions = True
+        self.discretize_obs = False
+
+
+class config_cd(config_cont):
+    def __init__(self):
+        super().__init__()
+        self.discretize_obs = True
 
 
 def get_config(config_name):
     if config_name == 'discrete':
         return config_discrete()
-    if config_name == 'discrete_vec':
-        return config_discrete_vec()
+    if config_name == 'cont':
+        return config_cont()
+    if config_name == 'DC':
+        return config_dc()
+    if config_name == 'CD':
+        return config_cd()
 

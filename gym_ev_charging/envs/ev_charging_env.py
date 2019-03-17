@@ -1,15 +1,16 @@
 # from gym.utils import seeding
 import datetime
 from copy import deepcopy
-
-import gym
-import gym_utils as utils
 import numpy as np
+import itertools
 import pandas as pd
-from data import toy_data
 from gym import spaces
 from gym_ev_charging.config_gym import get_config
 
+
+import gym
+import gym_utils as utils
+from data import toy_data
 
 class EVChargingEnv(gym.Env):
     """
@@ -30,24 +31,34 @@ class EVChargingEnv(gym.Env):
         self.time_step = config.TIME_STEP
         self.max_power = config.MAX_POWER
         self.min_power = config.MIN_POWER
-        self.transformer_capacity = config.TRANSFORMER_CAPACITY
+        self.transformer_capacity = config.MAX_POWER * config.NUM_STATIONS * config.TRANSFORMER_LIMIT
         self.reward_weights = config.REWARD_WEIGHTS  # completion, price, violation
         self.total_charging_data = utils.load_charging_data(config.path_data, config.NUM_STATIONS, config.TIME_STEP)
         self.total_elec_price_data = pd.DataFrame()
         self.random_state = np.random.RandomState(config.RAND_SEED)
-        self.observation_dimension = config.observation_dimension
 
-        # gym stuff
-        self.episode_over = False
-        self.action_space = gym.spaces.Discrete(len(config.action_map))  # combination of decisions for all stations
-        self.observation_space = np.zeros(config.observation_dimension)
+        if config.discretize_obs:
+            self.featurize = utils.featurize_s
+            self.observation_dimension = 24 + 7 + 17*config.NUM_STATIONS
+        else:
+            self.featurize = utils.featurize_cont
+            self.observation_dimension = 1 + 7 + 4*config.NUM_STATIONS
+        self.observation_space = np.zeros(self.observation_dimension)
+
+        if self.config.continuous_actions:
+            self.action_space = np.zeros(config.NUM_STATIONS)
+        else:
+            actions = [np.linspace(config.MIN_POWER, config.MAX_POWER, config.NUM_POWER_STEPS)
+                            for _ in range(config.NUM_STATIONS)]
+            # combination of decisions for all stations
+            self.action_map = {idx: a for idx, a in enumerate(itertools.product(*actions))}
+            self.action_space = gym.spaces.Discrete(len(self.action_map))
+
+
         self.total_steps = 0
-
+        self.episode_over = False
         self.evaluation_mode = False
 
-        # for ech episode
-
-        # self.start_time = None
         self.charging_data = None
         self.elec_price_data = None
         self.durations = []
@@ -87,12 +98,14 @@ class EVChargingEnv(gym.Env):
                  use this for learning.
         """
 
-        #translate action from number to tuple
-        a = self.config.action_map[action]
-        new_state, reward = self.take_action(a) 
+        if not self.config.continuous_actions:
+            #translate action from number to tuple
+            action = self.action_map[action]
+
+        new_state, reward = self.take_action(action)
         episode_over = self.done
-        info = {'new_state' : new_state, 'charge_rates' : a}
-        return utils.featurize_s(new_state), reward, episode_over, info
+        info = {'new_state' : new_state, 'charge_rates' : action}
+        return self.featurize(new_state), reward, episode_over, info
     
     def charge_car(self, station, new_station, charge_rate):
         is_car, des_char, per_char, curr_dur =  station['is_car'], station['des_char'], station['per_char'], station['curr_dur']
@@ -208,18 +221,15 @@ class EVChargingEnv(gym.Env):
         elec_cost = np.sum(energy_charged) * elec_price
         elec_cost = 1000 * elec_cost / (self.num_stations*self.time_step*self.max_power)  # [0, 1000] if price [0,1]
 
-        capa = self.transformer_capacity
+        capa = self.transformer_capacity * self.config.TIME_STEP
         if self.config.solar_behind_meter > 0:
             # with elec_price as inverse of solar output, increase transformer capa relative to solar generation
             capa = capa * (1 + self.config.solar_behind_meter * (1 - elec_price))
 
         pow_violation = (np.sum(energy_charged) / self.time_step) - capa
         pow_ratio = max(0.0, pow_violation) / capa
-        # power 10
-        # pow_penalty = 10*min(100, (10 ** (2*pow_ratio)) - 1)  # [0, 1000]
         # exp
         pow_penalty = min(1000, (np.exp(np.log(1000)*pow_ratio) - 1))  # [0, 1000]
-
 
         reward = [charge_reward, -elec_cost, -pow_penalty]
         # print("np.sum(energy_charged, self.transformer_capacity", np.sum(energy_charged), self.transformer_capacity)
@@ -257,7 +267,7 @@ class EVChargingEnv(gym.Env):
         self.durations = []
         self.charging_data, self.elec_price_data = self.sample_data()
         self.state = self.get_initial_state()
-        featurized_state = utils.featurize_s(self.state)
+        featurized_state = self.featurize(self.state)
         return featurized_state
 
     def render(self, mode='human', close=False):

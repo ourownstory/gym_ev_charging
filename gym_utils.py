@@ -6,9 +6,9 @@ maps = {}
 maps["hod"] = [lambda x: x, 24]
 maps["dow"] = [lambda x: x, 7]
 maps["is_car"] = [lambda x: int(x), 2]
-maps["des_char"] = [lambda x: np.digitize(x, [15, 30, 45, 60]), 5]
-maps["per_char"] = [lambda x: np.digitize(x, [20, 40, 60, 80]), 5]
-maps["curr_dur"] = [lambda x: np.digitize(x, [1, 2, 3, 4]), 5]
+maps["des_char"] = [lambda x: np.digitize(x, [5, 10, 20, 40]), 5]
+maps["per_char"] = [lambda x: np.digitize(x, [0.2, 0.4, 0.6, 0.8]), 5]
+maps["curr_dur"] = [lambda x: np.digitize(x, [0.5, 1, 2, 4]), 5]
 
 
 def load_elec_price_data(elec_price_data_file, time_step):
@@ -107,3 +107,21 @@ def featurize_s(s):
         per_char += one_hot(s['stations'][stn]['per_char'], "per_char")
         curr_dur += one_hot(s['stations'][stn]['curr_dur'], "curr_dur")
     return np.concatenate((hod, dow, is_car, des_char, per_char, curr_dur))
+
+
+def featurize_cont(s):
+    # hod = one_hot(s['time'].hour, "hod")
+    hod = [((s['time'].hour + s['time'].minute/60.0) / 12.0) - 1.0]
+    dow = one_hot(s['time'].weekday(), "dow")
+    is_car = []
+    des_char = []
+    per_char = []
+    curr_dur = []
+    for stn in range(len(s['stations'])):
+        is_car.append(s['stations'][stn]['is_car'])
+        des_char.append(s['stations'][stn]['des_char'] / 20)
+        per_char.append(s['stations'][stn]['per_char'])
+        curr_dur.append(s['stations'][stn]['curr_dur'] / 4)
+    per_missing = (1.0 - np.array(per_char))
+    missing_charge = per_missing * np.array(des_char)
+    return np.concatenate((hod, dow, is_car, missing_charge, per_char, curr_dur))
