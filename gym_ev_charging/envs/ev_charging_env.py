@@ -114,14 +114,14 @@ class EVChargingEnv(gym.Env):
         new_station['des_char'] = des_char
         new_station['curr_dur'] = curr_dur + self.time_step
         curr_char = per_char*des_char
-        new_station['char'] = min(des_char, curr_char +charge_rate*self.time_step)
-        energy_added = new_station['char'] - curr_char
-        new_station['per_char'] = float(new_station['char'])/des_char
+        total_char = min(des_char, curr_char +charge_rate*self.time_step)
+        energy_added = total_char - curr_char
+        new_station['per_char'] = float(total_char)/des_char
         return energy_added
     
     def car_leaves(self, new_station):
         new_station['is_car'] = False
-        new_station['des_char'], new_station['per_char'], new_station['dur'] = 0,0,0
+        new_station['des_char'], new_station['per_char'], new_station['curr_dur'] = 0,0,0
 
     def car_arrives(self, new_station, session):
         new_station['is_car'] = True
@@ -180,7 +180,7 @@ class EVChargingEnv(gym.Env):
                 station["is_car"] = True
                 station["des_char"] = session[1]
                 station["per_char"] = 0
-                station["curr_dur"] = 0 
+                station["curr_dur"] = 0
             else:
                 station["is_car"], station["des_char"], station["per_char"], station["curr_dur"] = False,0,0,0
                 self.durations.append(0)
