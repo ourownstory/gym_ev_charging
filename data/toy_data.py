@@ -16,10 +16,10 @@ locations = [loc1, loc2]
 
 days = 365*4
 price_values = np.tile(np.concatenate((np.linspace(1,0,48),np.linspace(0,1,48))), days)
-print(np.concatenate((np.linspace(1,0,48),np.linspace(0,1,48))))
+# print(np.concatenate((np.linspace(1,0,48),np.linspace(0,1,48))))
 price_keys = [datetime.datetime(2016,1,1,0,0) + datetime.timedelta(hours=0.25*x) for x in range(0, days*96)]
 price = {k:v for k, v in zip(price_keys, price_values)}
-print(price)
+# print(price)
 
 # states are represented as dictionaries: 
 # state["time"] is the current time

@@ -7,19 +7,20 @@ class config_default:
     def __init__(self):
         self.ENV_NAME = None
         self.RAND_SEED = 12345
-        self.EPS_LEN = 4 * 24 * 7
-        self.EVAL_EPS_LEN = 4*24*30
+        self.EPS_LEN = 4 * 24
+        self.EVAL_EPS_LEN = 4*24
 
-        self.NUM_STATIONS = 3
+        self.NUM_STATIONS = 5
         self.TIME_STEP = 0.25
         self.MAX_POWER = 6.6
         self.MIN_POWER = 0.0
-        self.NUM_POWER_STEPS = 3
-        self.TRANSFORMER_LIMIT = 0.75
+        self.NUM_POWER_STEPS = 3  # [2, 10]
+        self.TRANSFORMER_LIMIT = 0.2  # [0, 1]
         self.TRANSFORMER_CAPACITY = self.MAX_POWER * self.NUM_STATIONS * self.TRANSFORMER_LIMIT
-        self.REWARD_WEIGHTS = (0.333, 0.333, 0.333)
+        self.REWARD_WEIGHTS = (1, 2, 7)
 
-        self.charge_empty_first = True
+        self.charge_empty_factor = 0.1  # [0, 2]
+        self.solar_behind_meter = 1  # [0, (1 - TRANSFORMER_LIMIT) / TRANSFORMER_LIMIT]
 
         self.observation_dimension = 31 + 17*self.NUM_STATIONS
         self.actions = [np.linspace(self.MIN_POWER, self.MAX_POWER, self.NUM_POWER_STEPS)

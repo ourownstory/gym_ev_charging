@@ -11,9 +11,6 @@ from gym import spaces
 from gym_ev_charging.config_gym import get_config
 
 
-# TODO create at proper location
-# config = get_config('default')
-
 class EVChargingEnv(gym.Env):
     """
 
@@ -50,7 +47,7 @@ class EVChargingEnv(gym.Env):
 
         # for ech episode
 
-        self.start_time = None
+        # self.start_time = None
         self.charging_data = None
         self.elec_price_data = None
         self.durations = []
@@ -148,8 +145,7 @@ class EVChargingEnv(gym.Env):
         new_state['stations'] = stations
         reward = self.reward(
             energy_charged=energy_charged,
-            percent_charged=percent_charged,
-            charge_empty_first=self.config.charge_empty_first
+            percent_charged=percent_charged
         )
         self.state = new_state
         self.done = sum([len(loc) for loc in self.charging_data]) + sum(self.durations) == 0
@@ -194,22 +190,42 @@ class EVChargingEnv(gym.Env):
         return self.reward_weights[0] * charge_reward - self.reward_weights[1] * elec_cost - self.reward_weights[2] * pow_penalty
 
     # Called by take_action
-    def reward(self, energy_charged, percent_charged, charge_empty_first):
-        if charge_empty_first:
-            charge_influence = 1.5 - np.array(percent_charged)
+    def reward(self, energy_charged, percent_charged):
+        if self.config.charge_empty_factor > 0:
+            charge_influence = 1.0 + self.config.charge_empty_factor * (0.5 - np.array(percent_charged))
         else:
-            charge_influence = 1.0
+            charge_influence = 1
 
-        charge_reward = np.sum(energy_charged * charge_influence) / self.num_stations  # ~[0, 3.3-10]
+        charge_reward = np.sum(energy_charged * charge_influence)
+        charge_reward = 1000 * charge_reward / (self.num_stations*self.time_step*self.max_power)  # [0, 1000]
+        # print("percent_charged", percent_charged)
+        # print("charge_influence", charge_influence)
+        # print("energy_charged", energy_charged)
+        # print("energy_charged * charge_influence", energy_charged * charge_influence)
+        # print("charge_reward", charge_reward)
 
         elec_price = self.elec_price_data[self.get_current_state()['time'].to_pydatetime()]
-        elec_cost = np.sum(energy_charged) * elec_price / self.num_stations
+        elec_cost = np.sum(energy_charged) * elec_price
+        elec_cost = 1000 * elec_cost / (self.num_stations*self.time_step*self.max_power)  # [0, 1000] if price [0,1]
 
-        # TODO: if elec_price is inverse of solar output, increase transformer cap relative to solar generation
-        pow_violation = max(np.sum(energy_charged) - self.transformer_capacity, 0) / self.transformer_capacity
-        pow_penalty = np.exp(pow_violation * 3) - 1  # [0, e^(3*pow_violation) - 1]  (~[0, 20]) for cap_factor 0.5
+        capa = self.transformer_capacity
+        if self.config.solar_behind_meter > 0:
+            # with elec_price as inverse of solar output, increase transformer capa relative to solar generation
+            capa = capa * (1 + self.config.solar_behind_meter * (1 - elec_price))
+
+        pow_violation = (np.sum(energy_charged) / self.time_step) - capa
+        pow_ratio = max(0.0, pow_violation) / capa
+        # power 10
+        # pow_penalty = 10*min(100, (10 ** (2*pow_ratio)) - 1)  # [0, 1000]
+        # exp
+        pow_penalty = min(1000, (np.exp(np.log(1000)*pow_ratio) - 1))  # [0, 1000]
+
 
         reward = [charge_reward, -elec_cost, -pow_penalty]
+        # print("np.sum(energy_charged, self.transformer_capacity", np.sum(energy_charged), self.transformer_capacity)
+        # print("energy_charged", energy_charged)
+        # print("percent_charged", percent_charged)
+        # print("reward", reward)
         reward = sum([r*w for r, w in zip(reward, self.reward_weights)]) / sum(self.reward_weights)
         return reward
 
@@ -217,30 +233,32 @@ class EVChargingEnv(gym.Env):
         return self.state
 
     def sample_data(self):
-        # self.charging_data = deepcopy(locations)
         # TODO don't call toy_data here but self.total_elec_price_data
-        self.elec_price_data = toy_data.price
-        max_start_datetime = self.total_charging_data.index[-1] - datetime.timedelta(hours=self.episode_length * self.time_step)
-        valid_dates = self.total_charging_data.loc[self.total_charging_data.index[0]:max_start_datetime].index
-        self.start_time = valid_dates[self.random_state.choice(range(len(valid_dates)))].to_pydatetime()
-        if not self.evaluation_mode:
-            self.charging_data = utils.sample_charging_data(
-                self.total_charging_data, self.start_time, self.episode_length, self.time_step
+        elec_price_data = toy_data.price
+
+        if self.evaluation_mode:
+            charging_data = utils.sample_charging_data(
+                self.total_charging_data,
+                self.config.EVAL_EPS_LEN,
+                self.time_step,
+                self.random_state
             )
         else:
-            self.start_time = valid_dates[0]
-            self.episode_length = self.config.EVAL_EPS_LEN
-            self.charging_data = utils.sample_charging_data(
-                self.total_charging_data, self.start_time, self.episode_length, self.time_step
+            charging_data = utils.sample_charging_data(
+                self.total_charging_data,
+                self.episode_length,
+                self.time_step,
+                self.random_state
             )
+        return charging_data, elec_price_data
 
     def reset(self):
         self.done = False
         self.durations = []
-        self.sample_data()
+        self.charging_data, self.elec_price_data = self.sample_data()
         self.state = self.get_initial_state()
         featurized_state = utils.featurize_s(self.state)
-        return(featurized_state)
+        return featurized_state
 
     def render(self, mode='human', close=False):
         pass

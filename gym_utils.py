@@ -65,7 +65,12 @@ def load_charging_data(charging_data_file, num_stations, time_step):
     # return station_list
 
 
-def sample_charging_data(charging_data, start_time, episode_length, time_step):
+def sample_charging_data(charging_data, episode_length, time_step, random_state):
+    max_start_datetime = charging_data.index[-1] - datetime.timedelta(
+        hours=episode_length * time_step)
+    valid_dates = charging_data.loc[charging_data.index[0]:max_start_datetime].index
+    start_time = valid_dates[random_state.choice(range(len(valid_dates)))].to_pydatetime()
+
     df = charging_data.loc[start_time:start_time + datetime.timedelta(hours=episode_length * time_step)]
     # iterate: split ports, create tuples
     station_list = []
