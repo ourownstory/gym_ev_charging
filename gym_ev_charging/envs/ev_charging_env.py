@@ -54,7 +54,8 @@ class EVChargingEnv(gym.Env):
             self.action_map = {idx: np.array(a) for idx, a in enumerate(itertools.product(*actions))}
             self.action_space = gym.spaces.Discrete(len(self.action_map))
 
-
+        
+        self.info = {'new_state' : None, 'charge_rates' : None, 'elec_cost' : None, 'finished_cars_stats' : []}
         self.total_steps = 0
         self.episode_over = False
         self.evaluation_mode = False
@@ -97,7 +98,7 @@ class EVChargingEnv(gym.Env):
                  However, official evaluations of your agent are not allowed to
                  use this for learning.
         """
-
+        self.info = {'new_state' : None, 'charge_rates' : None, 'elec_cost' : None, 'finished_cars_stats' : []}
         if not self.config.continuous_actions:
             #translate action from number to tuple
             action = self.action_map[action]
@@ -105,8 +106,8 @@ class EVChargingEnv(gym.Env):
         new_state, reward = self.take_action(action)
         #translate action from number to tuple
         episode_over = self.done
-        info = {'new_state' : new_state, 'charge_rates' : action}
-        return self.featurize(new_state), reward, episode_over, info
+        self.info['new_state'], self.info['charge_rates'] = new_state, action
+        return self.featurize(new_state), reward, episode_over, self.info
     
     def charge_car(self, station, new_station, charge_rate):
         is_car, des_char, per_char, curr_dur =  station['is_car'], station['des_char'], station['per_char'], station['curr_dur']
@@ -120,6 +121,11 @@ class EVChargingEnv(gym.Env):
         return energy_added
     
     def car_leaves(self, new_station):
+        #compute statistics for self.info
+        total_char = new_station['des_char']*new_station['per_char']
+        best_possible_char = min(new_station['curr_dur']*self.max_power, new_station['des_char'])
+        self.info['finished_cars_stats'].append(total_char/best_possible_char)
+        #reset the station
         new_station['is_car'] = False
         new_station['des_char'], new_station['per_char'], new_station['curr_dur'] = 0,0,0
 
@@ -220,6 +226,8 @@ class EVChargingEnv(gym.Env):
 
         elec_price = self.elec_price_data[self.get_current_state()['time'].to_pydatetime()]
         elec_cost = np.sum(energy_charged) * elec_price
+        #store statistics
+        self.info['elec_cost'] = elec_cost
         elec_cost = 1000 * elec_cost / (self.num_stations*self.time_step*self.max_power)  # [0, 1000] if price [0,1]
         capa = self.transformer_capacity
         if self.config.solar_behind_meter > 0:
