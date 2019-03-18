@@ -54,8 +54,8 @@ class EVChargingEnv(gym.Env):
             self.action_map = {idx: np.array(a) for idx, a in enumerate(itertools.product(*actions))}
             self.action_space = gym.spaces.Discrete(len(self.action_map))
 
-        
-        self.info = {'new_state' : None, 'charge_rates' : None, 'elec_cost' : None, 'finished_cars_stats' : []}
+        self.info = None
+
         self.total_steps = 0
         self.episode_over = False
         self.evaluation_mode = False
@@ -98,7 +98,12 @@ class EVChargingEnv(gym.Env):
                  However, official evaluations of your agent are not allowed to
                  use this for learning.
         """
-        self.info = {'new_state' : None, 'charge_rates' : None, 'elec_cost' : None, 'finished_cars_stats' : []}
+        self.info = {
+            'new_state': None,
+            'charge_rates': None,
+            'elec_cost': None,
+            'finished_cars_stats': []
+        }
         if not self.config.continuous_actions:
             #translate action from number to tuple
             action = self.action_map[action]
@@ -275,6 +280,7 @@ class EVChargingEnv(gym.Env):
 
     def reset(self):
         self.done = False
+        self.info = None
         self.durations = []
         self.charging_data, self.elec_price_data = self.sample_data()
         self.state = self.get_initial_state()
