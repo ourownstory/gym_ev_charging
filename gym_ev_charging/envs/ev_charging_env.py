@@ -222,15 +222,17 @@ class EVChargingEnv(gym.Env):
         elec_cost = np.sum(energy_charged) * elec_price
         elec_cost = 1000 * elec_cost / (self.num_stations*self.time_step*self.max_power)  # [0, 1000] if price [0,1]
 
-        capa = self.transformer_capacity * self.config.TIME_STEP
+        capa = self.transformer_capacity
         if self.config.solar_behind_meter > 0:
             # with elec_price as inverse of solar output, increase transformer capa relative to solar generation
             capa = capa * (1 + self.config.solar_behind_meter * (1 - elec_price))
 
         pow_violation = (np.sum(energy_charged) / self.time_step) - capa
-        pow_ratio = max(0.0, pow_violation) / capa
-        # exp
-        pow_penalty = min(1000, (np.exp(np.log(1000)*pow_ratio) - 1))  # [0, 1000]
+        if pow_violation > 0:
+            pow_ratio = min(1, pow_violation / capa)
+            pow_penalty = np.exp(np.log(1000)*pow_ratio) - 1.0  # [0, 1000]
+        else:
+            pow_penalty = 0.0
 
         reward = [charge_reward, -elec_cost, -pow_penalty]
         # print("np.sum(energy_charged, self.transformer_capacity", np.sum(energy_charged), self.transformer_capacity)

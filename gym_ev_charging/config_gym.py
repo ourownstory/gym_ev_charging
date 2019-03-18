@@ -12,14 +12,14 @@ class config_default:
         self.MAX_POWER = 6.6
         self.MIN_POWER = 0.0
         self.EPS_LEN = 4*24
-        self.EVAL_EPS_LEN = 4*24*30
+        self.EVAL_EPS_LEN = 4*24*1
 
-        self.NUM_STATIONS = 3 
-        self.TRANSFORMER_LIMIT = 0.5  # [0, 1]
+        self.NUM_STATIONS = 1
+        self.TRANSFORMER_LIMIT = 1  # [0, 1]
         self.solar_behind_meter = 0  # [0, (1 - TRANSFORMER_LIMIT) / TRANSFORMER_LIMIT]
         self.charge_empty_factor = 0  # [0, 2]
 
-        self.REWARD_WEIGHTS = (1, 0, 10)
+        self.REWARD_WEIGHTS = (1, 3, 0)
 
         self.data_file = "sessions_161718_95014_top10.csv"
         cwd = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
