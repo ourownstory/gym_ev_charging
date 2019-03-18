@@ -51,7 +51,7 @@ class EVChargingEnv(gym.Env):
             actions = [np.linspace(config.MIN_POWER, config.MAX_POWER, config.NUM_POWER_STEPS)
                             for _ in range(config.NUM_STATIONS)]
             # combination of decisions for all stations
-            self.action_map = {idx: a for idx, a in enumerate(itertools.product(*actions))}
+            self.action_map = {idx: np.array(a) for idx, a in enumerate(itertools.product(*actions))}
             self.action_space = gym.spaces.Discrete(len(self.action_map))
 
 
@@ -101,7 +101,7 @@ class EVChargingEnv(gym.Env):
         if not self.config.continuous_actions:
             #translate action from number to tuple
             action = self.action_map[action]
-
+        action = utils.scale_action(action, self.transformer_capacity)
         new_state, reward = self.take_action(action)
         #translate action from number to tuple
         episode_over = self.done
@@ -221,7 +221,6 @@ class EVChargingEnv(gym.Env):
         elec_price = self.elec_price_data[self.get_current_state()['time'].to_pydatetime()]
         elec_cost = np.sum(energy_charged) * elec_price
         elec_cost = 1000 * elec_cost / (self.num_stations*self.time_step*self.max_power)  # [0, 1000] if price [0,1]
-
         capa = self.transformer_capacity
         if self.config.solar_behind_meter > 0:
             # with elec_price as inverse of solar output, increase transformer capa relative to solar generation
@@ -233,6 +232,7 @@ class EVChargingEnv(gym.Env):
             pow_penalty = np.exp(np.log(1000)*pow_ratio) - 1.0  # [0, 1000]
         else:
             pow_penalty = 0.0
+        assert abs(pow_penalty) < 1e-3
 
         reward = [charge_reward, -elec_cost, -pow_penalty]
         # print("np.sum(energy_charged, self.transformer_capacity", np.sum(energy_charged), self.transformer_capacity)

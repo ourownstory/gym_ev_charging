@@ -15,7 +15,9 @@ loc2 = [[datetime.datetime(2019, 1, 1, 18, 15), 20, 4],
 locations = [loc1, loc2]
 
 days = 365*4
-price_values = np.tile(np.concatenate((np.linspace(1,0,48),np.linspace(0,1,48))), days)
+#price_values = np.tile(np.concatenate((np.linspace(1,0,48),np.linspace(0,1,48))), days)
+shifted_cosine = lambda x: (1+np.cos(2*np.pi*(x-8/96)))/2
+price_values = np.tile(np.array([shifted_cosine(x) for x in np.linspace(0,1,96)]), days)
 # print(np.concatenate((np.linspace(1,0,48),np.linspace(0,1,48))))
 price_keys = [datetime.datetime(2016,1,1,0,0) + datetime.timedelta(hours=0.25*x) for x in range(0, days*96)]
 price = {k:v for k, v in zip(price_keys, price_values)}

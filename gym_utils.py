@@ -125,3 +125,12 @@ def featurize_cont(s):
     per_missing = (1.0 - np.array(per_char))
     missing_charge = per_missing * np.array(des_char)
     return np.concatenate((hod, dow, is_car, missing_charge, per_char, curr_dur))
+
+def scale_action(action, transformer_capacity):
+    tot_charge_request = np.sum(action)
+    if tot_charge_request > transformer_capacity:
+        return action*transformer_capacity/tot_charge_request
+    else:
+        return action
+
+
