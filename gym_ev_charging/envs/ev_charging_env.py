@@ -117,7 +117,8 @@ class EVChargingEnv(gym.Env):
         #translate action from number to tuple
         episode_over = self.done
         self.info['new_state'] = new_state 
-        self.info['charge_rates'] 
+        self.info['charge_rates']
+        # print(new_state)
         return self.featurize(new_state), reward, episode_over, self.info
     
     def charge_car(self, station, new_station, charge_rate):
