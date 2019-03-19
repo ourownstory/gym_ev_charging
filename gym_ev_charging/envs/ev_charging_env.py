@@ -103,7 +103,8 @@ class EVChargingEnv(gym.Env):
             'new_state': None,
             'charge_rates': None,
             'elec_cost': None,
-            'finished_cars_stats': []
+            'finished_cars_stats': [],
+            'price': None
         }
         if not self.config.continuous_actions:
             #translate action from number to tuple
@@ -237,6 +238,7 @@ class EVChargingEnv(gym.Env):
         # print("charge_reward", charge_reward)
 
         elec_price = self.elec_price_data[self.get_current_state()['time'].to_pydatetime()]
+        self.info['price'] = elec_price
         elec_cost = np.sum(energy_charged) * elec_price
         #store statistics
         self.info['elec_cost'] = elec_cost
