@@ -103,10 +103,11 @@ class EVChargingEnv(gym.Env):
         """
         self.info = {
             'new_state': None,
-            'charge_rates': None,
+            'charge_rates': [],
             'elec_cost': None,
             'finished_cars_stats': [],
-            'price': None
+            'price': None,
+            'energy_delivered': 0
         }
         if not self.config.continuous_actions:
             #translate action from number to tuple
@@ -115,7 +116,8 @@ class EVChargingEnv(gym.Env):
         new_state, reward = self.take_action(action)
         #translate action from number to tuple
         episode_over = self.done
-        self.info['new_state'], self.info['charge_rates'] = new_state, action
+        self.info['new_state'] = new_state 
+        self.info['charge_rates'] 
         return self.featurize(new_state), reward, episode_over, self.info
     
     def charge_car(self, station, new_station, charge_rate):
@@ -126,6 +128,11 @@ class EVChargingEnv(gym.Env):
         curr_char = per_char*des_char
         total_char = min(des_char, curr_char +charge_rate*self.time_step)
         energy_added = total_char - curr_char
+        self.info['energy_delivered'] += energy_added
+        if energy_added > 0:
+            self.info['charge_rates'].append(charge_rate)
+        else:
+            self.info['charge_rates'].append(0)
         new_station['per_char'] = float(total_char)/des_char
         return energy_added
     
@@ -160,6 +167,7 @@ class EVChargingEnv(gym.Env):
                     self.car_leaves(new_station)
             else:
                 energy_added = 0
+                self.info['charge_rates'].append(0)
             #see if new car comes
             loc = self.charging_data[stn_num]
             next_start_time = datetime.datetime(9999, 1, 1) if len(loc) == 0 else loc[-1][0]
