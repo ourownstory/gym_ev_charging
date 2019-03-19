@@ -6,7 +6,7 @@ import itertools
 import pandas as pd
 from gym import spaces
 from gym_ev_charging.config_gym import get_config
-
+import os
 
 import gym
 import gym_utils as utils
@@ -34,7 +34,13 @@ class EVChargingEnv(gym.Env):
         self.min_power = config.MIN_POWER
         self.transformer_capacity = config.MAX_POWER * config.NUM_STATIONS * config.TRANSFORMER_LIMIT
         self.reward_weights = config.REWARD_WEIGHTS  # completion, price, violation
-        self.total_charging_data = utils.load_charging_data(config.path_data, config.NUM_STATIONS, config.TIME_STEP)
+
+        cwd = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        path = os.path.join(cwd, "data", "clean")
+        train_data = os.path.join(path, self.config.train_file)
+        eval_data = os.path.join(path, self.config.eval_file)
+        self.train_charging_data = utils.load_charging_data(train_data, config.NUM_STATIONS, config.TIME_STEP)
+        self.eval_charging_data = utils.load_charging_data(eval_data, config.NUM_STATIONS, config.TIME_STEP)
         self.total_elec_price_data = pd.DataFrame()
         self.random_state = np.random.RandomState(config.RAND_SEED)
 
@@ -44,15 +50,17 @@ class EVChargingEnv(gym.Env):
         else:
             self.featurize = utils.featurize_cont
             self.observation_dimension = 1 + 7 + 4*config.NUM_STATIONS
+            if config.do_not_featurize:
+                self.featurize = lambda x: x
         self.observation_space = np.zeros(self.observation_dimension)
 
         if self.config.continuous_actions:
             self.action_space = np.zeros(config.NUM_STATIONS)
         else:
-            actions = [np.linspace(config.MIN_POWER, config.MAX_POWER, config.NUM_POWER_STEPS)
+            self.actions = [np.linspace(config.MIN_POWER, config.MAX_POWER, config.NUM_POWER_STEPS)
                             for _ in range(config.NUM_STATIONS)]
             # combination of decisions for all stations
-            self.action_map = {idx: np.array(a) for idx, a in enumerate(itertools.product(*actions))}
+            self.action_map = {idx: np.array(a) for idx, a in enumerate(itertools.product(*self.actions))}
             self.action_space = gym.spaces.Discrete(len(self.action_map))
 
         self.info = None
@@ -101,10 +109,11 @@ class EVChargingEnv(gym.Env):
         """
         self.info = {
             'new_state': None,
-            'charge_rates': None,
+            'charge_rates': [],
             'elec_cost': None,
             'finished_cars_stats': [],
-            'price': None
+            'price': None,
+            'energy_delivered': 0
         }
         if not self.config.continuous_actions:
             #translate action from number to tuple
@@ -113,7 +122,9 @@ class EVChargingEnv(gym.Env):
         new_state, reward = self.take_action(action)
         #translate action from number to tuple
         episode_over = self.done
-        self.info['new_state'], self.info['charge_rates'] = new_state, action
+        self.info['new_state'] = new_state 
+        self.info['charge_rates']
+        # print(new_state)
         return self.featurize(new_state), reward, episode_over, self.info
     
     def charge_car(self, station, new_station, charge_rate):
@@ -124,6 +135,11 @@ class EVChargingEnv(gym.Env):
         curr_char = per_char*des_char
         total_char = min(des_char, curr_char +charge_rate*self.time_step)
         energy_added = total_char - curr_char
+        self.info['energy_delivered'] += energy_added
+        if energy_added > 0:
+            self.info['charge_rates'].append(charge_rate)
+        else:
+            self.info['charge_rates'].append(0)
         new_station['per_char'] = float(total_char)/des_char
         return energy_added
     
@@ -158,6 +174,7 @@ class EVChargingEnv(gym.Env):
                     self.car_leaves(new_station)
             else:
                 energy_added = 0
+                self.info['charge_rates'].append(0)
             #see if new car comes
             loc = self.charging_data[stn_num]
             next_start_time = datetime.datetime(9999, 1, 1) if len(loc) == 0 else loc[-1][0]
@@ -274,14 +291,14 @@ class EVChargingEnv(gym.Env):
 
         if self.evaluation_mode:
             charging_data = utils.sample_charging_data(
-                self.total_charging_data,
+                self.eval_charging_data,
                 self.config.EVAL_EPS_LEN,
                 self.time_step,
                 self.random_state
             )
         else:
             charging_data = utils.sample_charging_data(
-                self.total_charging_data,
+                self.train_charging_data,
                 self.episode_length,
                 self.time_step,
                 self.random_state
