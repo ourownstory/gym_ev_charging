@@ -6,6 +6,7 @@ class config_default:
         self.ENV_NAME = None
         self.continuous_actions = None
         self.discretize_obs = None
+        self.do_not_featurize = False
 
         self.RAND_SEED = 123
         self.TIME_STEP = 0.25
@@ -55,6 +56,15 @@ class config_cd(config_cont):
         super().__init__()
         self.discretize_obs = True
 
+class config_justin(config_dc):
+    def __init__(self):
+        super().__init__()
+        self.do_not_featurize = True
+        self.NUM_STATIONS = 3
+        self.NUM_POWER_STEPS = 3  # [2, 10]
+        self.TRANSFORMER_LIMIT = 0.7
+        self.EPS_LEN = 4 * 24 * 3
+        self.EVAL_EPS_LEN = 4 * 24 * 3
 
 def get_config(config_name):
     if config_name == 'discrete':
@@ -65,4 +75,6 @@ def get_config(config_name):
         return config_dc()
     if config_name == 'CD':
         return config_cd()
+    if config_name == 'justin':
+        return config_justin()
 

@@ -44,15 +44,17 @@ class EVChargingEnv(gym.Env):
         else:
             self.featurize = utils.featurize_cont
             self.observation_dimension = 1 + 7 + 4*config.NUM_STATIONS
+            if config.do_not_featurize:
+                self.featurize = lambda x: x
         self.observation_space = np.zeros(self.observation_dimension)
 
         if self.config.continuous_actions:
             self.action_space = np.zeros(config.NUM_STATIONS)
         else:
-            actions = [np.linspace(config.MIN_POWER, config.MAX_POWER, config.NUM_POWER_STEPS)
+            self.actions = [np.linspace(config.MIN_POWER, config.MAX_POWER, config.NUM_POWER_STEPS)
                             for _ in range(config.NUM_STATIONS)]
             # combination of decisions for all stations
-            self.action_map = {idx: np.array(a) for idx, a in enumerate(itertools.product(*actions))}
+            self.action_map = {idx: np.array(a) for idx, a in enumerate(itertools.product(*self.actions))}
             self.action_space = gym.spaces.Discrete(len(self.action_map))
 
         self.info = None
