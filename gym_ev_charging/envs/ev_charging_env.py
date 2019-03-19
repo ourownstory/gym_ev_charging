@@ -26,6 +26,7 @@ class EVChargingEnv(gym.Env):
         if config is None:
             config = get_config('default')
         self.config = config
+        self.reward_range = (-1000.0, 1000.0)
         self.num_stations = config.NUM_STATIONS
         self.episode_length = config.EPS_LEN
         self.time_step = config.TIME_STEP
