@@ -141,7 +141,7 @@ class EVChargingEnv(gym.Env):
         new_station['per_char'] = 0
         new_station['curr_dur'] = 0
     
-    def take_action(self, a):
+    def take_action(self, actions):
         # print(self.state)
         new_state = {}
         time = self.state['time']
@@ -151,7 +151,7 @@ class EVChargingEnv(gym.Env):
         for stn_num, station in enumerate(self.state['stations']):
             new_station = deepcopy(station)
             if station['is_car']:
-                energy_added = self.charge_car(station, new_station,a[stn_num])
+                energy_added = self.charge_car(station, new_station, actions[stn_num])
                 if new_station['curr_dur'] >= self.durations[stn_num]:
                     self.durations[stn_num] = 0
                     self.car_leaves(new_station)
@@ -173,6 +173,12 @@ class EVChargingEnv(gym.Env):
             energy_charged=energy_charged,
             percent_charged=percent_charged
         )
+        if self.config.penalize_unecessary_actions > 0:
+            is_car = np.array([int(station['is_car']) for station in self.state['stations']])
+            not_full = np.array([int(p < 1.0) for p in percent_charged])
+            a_charge = np.array([int(a > 0.1) for a in actions])
+            unnecessary_actions = (1 - (is_car*not_full)) * a_charge
+            reward -= self.config.penalize_unecessary_actions * float(sum(unnecessary_actions)) / float(self.num_stations)
         self.state = new_state
         self.done = sum([len(loc) for loc in self.charging_data]) + sum(self.durations) == 0
         return new_state, reward
