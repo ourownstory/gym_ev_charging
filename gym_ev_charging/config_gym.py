@@ -179,7 +179,7 @@ class Multi2(Discrete):
         self.gamma = 0.99
 
         self.NUM_STATIONS = 2
-        self.TRANSFORMER_LIMIT = 1  # [0, 1]
+        self.TRANSFORMER_LIMIT = 0.5  # [0, 1]
         self.scale_actions_transformer = True
 
         self.REWARD_WEIGHTS = (1, 1, 0)
@@ -197,6 +197,8 @@ class Multi2Price(Multi2):
         # or
         self.REWARD_WEIGHTS = (1, 1, 0)
 
+        self.TRANSFORMER_LIMIT = 1  # [0, 1]
+
 
 class Multi2PriceCont(Multi2Price):
     def __init__(self):
@@ -211,6 +213,7 @@ class Multi2Charge(Multi2):
         # TODO set gamma to 1 in the controller
         self.gamma = 1.00
         self.REWARD_WEIGHTS = (1, 0, 0)
+
         self.TRANSFORMER_LIMIT = 0.5
 
 
@@ -230,6 +233,8 @@ class Multi2Bal1(Multi2):
         # or
         # self.REWARD_WEIGHTS = (2, 1, 0)
 
+        self.TRANSFORMER_LIMIT = 0.5
+
 
 class Multi2Bal1Cont(Multi2Bal1):
     def __init__(self):
@@ -246,6 +251,8 @@ class Multi2Bal2(Multi2):
         # self.REWARD_WEIGHTS = (1, 1, 0)
         # or
         self.REWARD_WEIGHTS = (2, 1, 0)
+
+        self.TRANSFORMER_LIMIT = 0.5
 
 
 class Multi2Bal2Cont(Multi2Bal2):
