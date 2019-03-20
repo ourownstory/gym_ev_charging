@@ -58,7 +58,7 @@ class EVChargingEnv(gym.Env):
 
         if config.obs_features == 'discrete':
             self.featurize = utils.featurize_s
-            self.observation_dimension = 24 + 7 + 22*config.NUM_STATIONS
+            self.observation_dimension = 24+7+5 + 17*config.NUM_STATIONS
         elif config.obs_features == 'continuous':
             self.featurize = utils.featurize_cont
             self.observation_dimension = 4 + 5*config.NUM_STATIONS
@@ -66,7 +66,7 @@ class EVChargingEnv(gym.Env):
                 self.featurize = lambda x: x
         elif config.obs_features == 'combined':
             self.featurize = utils.featurize_comb
-            self.observation_dimension = 24 + 7 + 4 + (22+5)*config.NUM_STATIONS
+            self.observation_dimension = 24+7+5 + 4 + (17+5)*config.NUM_STATIONS
 
         self.observation_space = np.zeros(self.observation_dimension)
 
@@ -287,14 +287,12 @@ class EVChargingEnv(gym.Env):
         else:
             charge_reward = np.sum(energy_charged * charge_influence)
 
-        charge_reward = charge_reward / (self.num_stations*self.time_step*self.max_power)  # [0, 1]
 
         elec_price = self.elec_price_data[self.get_current_state()['time'].to_pydatetime()]
         self.info['price'] = elec_price
         elec_cost = np.sum(energy_charged) * elec_price
         #store statistics
         self.info['elec_cost'] = elec_cost
-        elec_cost = elec_cost / (self.num_stations*self.time_step*self.max_power)  # [0, 1] if price [0,1]
 
         pow_penalty = 0.0
         if not self.config.scale_actions_transformer:
@@ -306,6 +304,10 @@ class EVChargingEnv(gym.Env):
             if pow_violation > 0:
                 pow_ratio = min(1, pow_violation / capa)
                 pow_penalty = np.exp(np.log(magnitude)*pow_ratio) - 1.0  # [0, 1000]
+
+        divider = self.time_step*self.transformer_capacity
+        charge_reward = charge_reward / divider  # [0, 1]
+        elec_cost = elec_cost / divider  # [0, 1] if price [0,1]
 
         reward = [magnitude*charge_reward, -1*magnitude*elec_cost, -1*pow_penalty]
         # print(reward)

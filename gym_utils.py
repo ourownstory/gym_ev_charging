@@ -115,6 +115,7 @@ def featurize_s(s):
     featurized = np.concatenate(
         (hod, dow, is_car, des_char, per_missing, curr_dur, price)
     )
+    # print(featurized.shape)
     return featurized
 
 
@@ -141,13 +142,15 @@ def featurize_cont(s, dow_one_hot=False):
     featurized = np.concatenate(
         (dow, hod_single, hod_single2, price, is_car, des_char, missing_charge, per_missing, curr_dur)
     )
+    # print(featurized.shape)
     return featurized
 
 
 def featurize_comb(s):
     discrete = featurize_s(s)
     continuous = featurize_cont(s, dow_one_hot=False)
-    featurized = np.concatenate((continuous, discrete))
+    featurized = np.concatenate([continuous, discrete])
+    # print(continuous.shape, discrete.shape, featurized.shape)
     return featurized
 
 
