@@ -8,6 +8,7 @@ class config_default:
         self.do_not_featurize = False
         self.alt_reward_func = False
 
+        self.use_delayed_charge_reward = False
         self.reward_magnitude = 1.0
 
         self.RAND_SEED = 12345
@@ -65,14 +66,18 @@ class config_justin(config_dc):
         super().__init__()
         self.do_not_featurize = True
         self.alt_reward_func = True
+        self.use_delayed_charge_reward = True
+
         self.RAND_SEED = 1
-        self.penalize_unecessary_actions = 0
-        self.NUM_STATIONS = 1
+        self.NUM_STATIONS = 2
         self.NUM_POWER_STEPS = 2  # [2, 10]
         self.TRANSFORMER_LIMIT = 1.0
         self.EPS_LEN = 4 * 24 * 3
         self.EVAL_EPS_LEN = 4 * 24 * 3
         self.REWARD_WEIGHTS = (0.55, 0.45, 0)
+
+        self.penalize_unecessary_actions = 0
+        self.reward_magnitude = 1.0
 
 def get_config(config_name):
     if config_name == 'discrete':

@@ -46,6 +46,7 @@ class EVChargingEnv(gym.Env):
         self.transformer_capacity = config.MAX_POWER * config.NUM_STATIONS * config.TRANSFORMER_LIMIT
         # completion, price, violation
         self.reward_weights = [x / float(sum(config.REWARD_WEIGHTS)) for x in config.REWARD_WEIGHTS]
+        self.delayed_charge_reward = [0] * self.num_stations
 
         cwd = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         path = os.path.join(cwd, "data", "clean")
@@ -132,10 +133,12 @@ class EVChargingEnv(gym.Env):
         new_station['des_char'] = des_char
         new_station['curr_dur'] = curr_dur + self.time_step
         curr_char = per_char*des_char
-        total_char = min(des_char, curr_char +charge_rate*self.time_step)
+        total_char = max(min(des_char, curr_char +charge_rate*self.time_step), 0)
         energy_added = total_char - curr_char
         self.info['energy_delivered'] += energy_added
-        if energy_added > 0:
+        if energy_added > 0:  # why is this if / elif / else necessary?
+            self.info['charge_rates'].append(charge_rate)
+        elif energy_added < 0:
             self.info['charge_rates'].append(charge_rate)
         else:
             self.info['charge_rates'].append(0)
@@ -249,21 +252,31 @@ class EVChargingEnv(gym.Env):
     #         return reward
 
     def reward(self, energy_charged, percent_charged):
+        # charging_powers = print(self.info['charge_rates'])
         magnitude = self.config.reward_magnitude
         if self.config.charge_empty_factor > 0:
             charge_influence = 1.0 + self.config.charge_empty_factor * (0.5 - np.array(percent_charged))
         else:
             charge_influence = 1
 
-        charge_reward = np.sum(energy_charged * charge_influence)
-        charge_reward = charge_reward / (self.num_stations*self.time_step*self.max_power)  # [0, 1000]
+        if self.config.use_delayed_charge_reward:
+            charge_reward = 0
+            for i in range(self.num_stations):
+                self.delayed_charge_reward[i] += energy_charged[i] * charge_influence
+                if not self.get_current_state()['stations'][i]['is_car']:
+                    charge_reward += self.delayed_charge_reward[i]
+                    self.delayed_charge_reward[i] = 0
+
+        else:
+            charge_reward = np.sum(energy_charged * charge_influence)
+            charge_reward = charge_reward / (self.num_stations*self.time_step*self.max_power)  # [0, 1]
 
         elec_price = self.elec_price_data[self.get_current_state()['time'].to_pydatetime()]
         self.info['price'] = elec_price
         elec_cost = np.sum(energy_charged) * elec_price
         #store statistics
         self.info['elec_cost'] = elec_cost
-        elec_cost = elec_cost / (self.num_stations*self.time_step*self.max_power)  # [0, 1000] if price [0,1]
+        elec_cost = elec_cost / (self.num_stations*self.time_step*self.max_power)  # [0, 1] if price [0,1]
 
         pow_penalty = 0.0
         if not self.config.scale_actions_transformer:
@@ -277,7 +290,7 @@ class EVChargingEnv(gym.Env):
                 pow_penalty = np.exp(np.log(magnitude)*pow_ratio) - 1.0  # [0, 1000]
 
         reward = [magnitude*charge_reward, -1*magnitude*elec_cost, -1*pow_penalty]
-
+        # print(reward)
         reward = sum([r*w for r, w in zip(reward, self.reward_weights)])
         return reward
 
@@ -309,6 +322,7 @@ class EVChargingEnv(gym.Env):
         self.durations = []
         self.charging_data, self.elec_price_data = self.sample_data()
         self.state = self.get_initial_state()
+        self.delayed_charge_reward = [0] * self.num_stations
         featurized_state = self.featurize(self.state)
         return featurized_state
 
