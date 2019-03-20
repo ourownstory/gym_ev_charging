@@ -111,7 +111,8 @@ class EVChargingEnv(gym.Env):
             'new_state': None,
             'charge_rates': [],
             'elec_cost': None,
-            'finished_cars_stats': [],
+            'best_possible_energy': [],
+            'tot_energy_delivered': [],
             'price': None,
             'energy_delivered': 0
         }
@@ -122,8 +123,7 @@ class EVChargingEnv(gym.Env):
         new_state, reward = self.take_action(action)
         #translate action from number to tuple
         episode_over = self.done
-        self.info['new_state'] = new_state 
-        self.info['charge_rates']
+        self.info['new_state'] = new_state
         # print(new_state)
         return self.featurize(new_state), reward, episode_over, self.info
     
@@ -145,9 +145,10 @@ class EVChargingEnv(gym.Env):
     
     def car_leaves(self, new_station):
         #compute statistics for self.info
-        total_char = new_station['des_char']*new_station['per_char']
-        best_possible_char = min(new_station['curr_dur']*self.max_power, new_station['des_char'])
-        self.info['finished_cars_stats'].append(total_char/best_possible_char)
+        total_energy = new_station['des_char']*new_station['per_char']
+        best_possible_energy = min(new_station['curr_dur']*self.max_power, new_station['des_char'])
+        self.info['tot_energy_delivered'].append(total_energy)
+        self.info['best_possible_energy'].append(best_possible_energy)
         #reset the station
         new_station['is_car'] = False
         new_station['des_char'], new_station['per_char'], new_station['curr_dur'] = 0,0,0
@@ -189,7 +190,8 @@ class EVChargingEnv(gym.Env):
         new_state['stations'] = stations
         reward = self.reward(
             energy_charged=energy_charged,
-            percent_charged=percent_charged
+            percent_charged=percent_charged,
+            charging_powers=actions
         )
         if self.config.penalize_unecessary_actions > 0:
             is_car = np.array([int(station['is_car']) for station in self.state['stations']])
@@ -241,7 +243,23 @@ class EVChargingEnv(gym.Env):
         return self.reward_weights[0] * charge_reward - self.reward_weights[1] * elec_cost - self.reward_weights[2] * pow_penalty
 
     # Called by take_action
-    def reward(self, energy_charged, percent_charged):
+    def reward(self, energy_charged, percent_charged, charging_powers):
+        if self.config.alt_reward_func:
+            charge_reward = np.sum(np.maximum(energy_charged, 0))
+
+            elec_price = self.elec_price_data[self.get_current_state()['time'].to_pydatetime()]
+            elec_cost = np.sum(np.array(energy_charged) * elec_price)
+            self.info['price'] = elec_price
+            self.info['elec_cost'] = elec_cost
+
+            pow_violation = max(np.sum(charging_powers) - self.transformer_capacity, 0) / self.transformer_capacity
+            pow_penalty = np.exp(pow_violation * 9) - 1
+
+            reward = [charge_reward, -elec_cost, -pow_penalty]
+            # print(reward)
+            reward = sum([r * w for r, w in zip(reward, self.reward_weights)]) / sum(self.reward_weights)
+            return reward
+
         if self.config.charge_empty_factor > 0:
             charge_influence = 1.0 + self.config.charge_empty_factor * (0.5 - np.array(percent_charged))
         else:
