@@ -69,12 +69,15 @@ class Justin(DC):
         super().__init__()
         self.do_not_featurize = True
         self.alt_reward_func = True
-        self.use_delayed_charge_reward = "full_bonus" #False "leave" "full" "full_bonus"
+        self.use_delayed_charge_reward = "full" #False "leave" "full" "full_bonus"
+        self.gamma = 0.9
 
         self.RAND_SEED = 1
         self.NUM_STATIONS = 2
         self.NUM_POWER_STEPS = 2  # [2, 10]
         self.TRANSFORMER_LIMIT = 1.0
+        self.scale_actions_transformer = True
+
         self.EPS_LEN = 4 * 24 * 3
         self.EVAL_EPS_LEN = 4 * 24 * 3
         self.REWARD_WEIGHTS = (0.55, 0.45, 0)

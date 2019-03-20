@@ -64,6 +64,7 @@ class EVChargingEnv(gym.Env):
             self.observation_dimension = 4 + 5*config.NUM_STATIONS
             if config.do_not_featurize:
                 self.featurize = lambda x: x
+                self.observation_dimension = 7 + 3 + 5 * config.NUM_STATIONS
         elif config.obs_features == 'combined':
             self.featurize = utils.featurize_comb
             self.observation_dimension = 24+7+5 + 4 + (17+5)*config.NUM_STATIONS
