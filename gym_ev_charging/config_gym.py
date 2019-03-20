@@ -7,6 +7,8 @@ class config_default:
         self.discretize_obs = None
         self.do_not_featurize = False
 
+        self.reward_magnitude = 1.0
+
         self.RAND_SEED = 12345
         self.TIME_STEP = 0.25
         self.MAX_POWER = 6.6
@@ -15,12 +17,15 @@ class config_default:
         self.EVAL_EPS_LEN = 4*24*3
 
         self.NUM_STATIONS = 1
-        self.TRANSFORMER_LIMIT = 1  # [0, 1]
+        self.TRANSFORMER_LIMIT = 0.1  # [0, 1]
+        self.scale_actions_transformer = True
         self.solar_behind_meter = 0  # [0, (1 - TRANSFORMER_LIMIT) / TRANSFORMER_LIMIT]
         self.charge_empty_factor = 0  # [0, 2]
 
         self.REWARD_WEIGHTS = (1, 0, 0)
         self.penalize_unecessary_actions = 0
+
+        self.end_after_leave = True  # only affects when training on single station
 
         self.train_file = "train_sessions_161718_95014_top10.csv"
         self.eval_file = "eval_sessions_161718_95014_top10.csv"

@@ -8,6 +8,7 @@ maps["dow"] = [lambda x: x, 7]
 maps["is_car"] = [lambda x: int(x), 2]
 maps["des_char"] = [lambda x: np.digitize(x, [5, 10, 20, 40]), 5]
 maps["per_char"] = [lambda x: np.digitize(x, [0.2, 0.4, 0.6, 0.8]), 5]
+maps["price"] = [lambda x: np.digitize(x, [0.2, 0.4, 0.6, 0.8]), 5]
 maps["curr_dur"] = [lambda x: np.digitize(x, [0.5, 1, 2, 4]), 5]
 
 
@@ -97,34 +98,49 @@ def one_hot(value, data):
 def featurize_s(s):
     hod = one_hot(s['time'].hour, "hod")
     dow = one_hot(s['time'].weekday(), "dow")
+    price = one_hot(s['price'], 'price')
     is_car = []
     des_char = []
-    per_char = []
+    # per_char = []
+    per_missing = []
     curr_dur = []
     for stn in range(len(s['stations'])):
-        is_car += one_hot(s['stations'][stn]['is_car'], "is_car")
-        des_char += one_hot(s['stations'][stn]['des_char'], "des_char")
-        per_char += one_hot(s['stations'][stn]['per_char'], "per_char")
-        curr_dur += one_hot(s['stations'][stn]['curr_dur'], "curr_dur")
-    return np.concatenate((hod, dow, is_car, des_char, per_char, curr_dur))
+        stn_s = s['stations'][stn]
+        is_car += one_hot(stn_s['is_car'], "is_car")
+        des_char += one_hot(stn_s['des_char'], "des_char")
+        per_m = float(stn_s['is_car']) * (1.0 - stn_s['per_char'])
+        per_missing += one_hot(per_m, "per_char")
+        # per_char += one_hot(stn_s['per_char'], "per_char")
+        curr_dur += one_hot(stn_s['curr_dur'], "curr_dur")
+    featurized = np.concatenate(
+        (hod, dow, is_car, des_char, per_missing, curr_dur, price)
+    )
+    return featurized
 
 
 def featurize_cont(s):
     # hod = one_hot(s['time'].hour, "hod")
-    hod = [((s['time'].hour + s['time'].minute/60.0) / 12.0) - 1.0]
+    hod_single = [((s['time'].hour + s['time'].minute/60.0) / 13.0) - 1.0]
+    hod_single2 = [abs(x) for x in hod_single]
     dow = one_hot(s['time'].weekday(), "dow")
+    price = s['price']
+    print(s)
     is_car = []
     des_char = []
     per_char = []
     curr_dur = []
     for stn in range(len(s['stations'])):
-        is_car.append(s['stations'][stn]['is_car'])
+        is_car.append(float(s['stations'][stn]['is_car']))
         des_char.append(s['stations'][stn]['des_char'] / 20)
         per_char.append(s['stations'][stn]['per_char'])
         curr_dur.append(s['stations'][stn]['curr_dur'] / 4)
-    per_missing = (1.0 - np.array(per_char))
+    per_missing = (1.0 - np.array(per_char)) * np.array(is_car)
     missing_charge = per_missing * np.array(des_char)
-    return np.concatenate((hod, dow, is_car, missing_charge, per_char, curr_dur))
+    featurized = np.concatenate(
+        (dow, hod_single, hod_single2, price, is_car, des_char, missing_charge, per_missing, curr_dur)
+    )
+    return featurized
+
 
 def scale_action(action, transformer_capacity):
     tot_charge_request = np.sum(action)
@@ -134,3 +150,16 @@ def scale_action(action, transformer_capacity):
         return action
 
 
+   # # Called by take_action
+    # # the three arguments are lists of the given values at each station
+    # def reward_exp(self, energy_charged, percent_charged, charging_powers):
+    #     charge_reward = sum(np.array(energy_charged) * (np.exp(percent_charged) - 1))  # sum [0, energy_charged*(e-1)] (~[0, 8.5])
+    #
+    #     elec_price = self.elec_price_data[self.get_current_state()['time'].to_pydatetime()]
+    #     elec_cost = sum(np.array(energy_charged) * elec_price * (np.exp(1) - 1))  # sum [0, energy_charged*(e-1)] (~[0, 8.5])
+    #
+    #     pow_violation = max(np.sum(charging_powers) - self.transformer_capacity, 0) / self.transformer_capacity
+    #     pow_penalty = np.exp(pow_violation * 12) - 1  # [0, e^(10*pow_violation) - 1]  (~[0, 20])
+    #     # print(charge_reward, elec_cost, pow_penalty)
+    #
+    #     return self.reward_weights[0] * charge_reward - self.reward_weights[1] * elec_cost - self.reward_weights[2] * pow_penalty
