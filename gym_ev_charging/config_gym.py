@@ -18,7 +18,7 @@ class config_default:
         self.EVAL_EPS_LEN = self.EPS_LEN
 
         self.NUM_STATIONS = 1
-        self.TRANSFORMER_LIMIT = 0.1  # [0, 1]
+        self.TRANSFORMER_LIMIT = 1  # [0, 1]
         self.scale_actions_transformer = True
         self.solar_behind_meter = 0  # [0, (1 - TRANSFORMER_LIMIT) / TRANSFORMER_LIMIT]
         self.charge_empty_factor = 0  # [0, 2]
