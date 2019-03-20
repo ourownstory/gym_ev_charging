@@ -12,6 +12,7 @@ import gym
 import gym_utils as utils
 from data import toy_data
 
+
 class EVChargingEnv(gym.Env):
     """
 
@@ -122,7 +123,7 @@ class EVChargingEnv(gym.Env):
         new_state, reward = self.take_action(action)
         #translate action from number to tuple
         self.info['new_state'] = new_state
-        
+
         return self.featurize(new_state), reward, self.done, self.info
     
     def charge_car(self, station, new_station, charge_rate):
@@ -192,7 +193,6 @@ class EVChargingEnv(gym.Env):
         reward = self.reward(
             energy_charged=energy_charged,
             percent_charged=percent_charged,
-            charging_powers=actions
         )
         if self.config.penalize_unecessary_actions > 0:
             is_car = np.array([int(station['is_car']) for station in self.state['stations']])
