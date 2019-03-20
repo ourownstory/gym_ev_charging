@@ -19,21 +19,32 @@ class EVChargingEnv(gym.Env):
     # metadata = {'render.modes': ['human']}
 
     def __init__(self):
-        # TODO just init to zero
-        pass
+        self.info = None
+
+        self.evaluation_mode = False
+
+        self.charging_data = None
+        self.elec_price_data = None
+        self.durations = []
+        self.done = False
+        self.state = None
 
     def build(self, config=None):
         if config is None:
             config = get_config('default')
         self.config = config
-        self.reward_range = (-1000.0, 1000.0)
+
+        self.random_state = np.random.RandomState(config.RAND_SEED)
+
+        self.reward_range = (-config.reward_magnitude, config.reward_magnitude)
         self.num_stations = config.NUM_STATIONS
         self.episode_length = config.EPS_LEN
         self.time_step = config.TIME_STEP
         self.max_power = config.MAX_POWER
         self.min_power = config.MIN_POWER
         self.transformer_capacity = config.MAX_POWER * config.NUM_STATIONS * config.TRANSFORMER_LIMIT
-        self.reward_weights = config.REWARD_WEIGHTS  # completion, price, violation
+        # completion, price, violation
+        self.reward_weights = [x / float(sum(config.REWARD_WEIGHTS)) for x in config.REWARD_WEIGHTS]
 
         cwd = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         path = os.path.join(cwd, "data", "clean")
@@ -42,14 +53,13 @@ class EVChargingEnv(gym.Env):
         self.train_charging_data = utils.load_charging_data(train_data, config.NUM_STATIONS, config.TIME_STEP)
         self.eval_charging_data = utils.load_charging_data(eval_data, config.NUM_STATIONS, config.TIME_STEP)
         self.total_elec_price_data = pd.DataFrame()
-        self.random_state = np.random.RandomState(config.RAND_SEED)
 
         if config.discretize_obs:
             self.featurize = utils.featurize_s
-            self.observation_dimension = 24 + 7 + 17*config.NUM_STATIONS
+            self.observation_dimension = 24 + 7 + 22*config.NUM_STATIONS
         else:
             self.featurize = utils.featurize_cont
-            self.observation_dimension = 1 + 7 + 4*config.NUM_STATIONS
+            self.observation_dimension = 7 + 3 + 5*config.NUM_STATIONS
             if config.do_not_featurize:
                 self.featurize = lambda x: x
         self.observation_space = np.zeros(self.observation_dimension)
@@ -63,18 +73,6 @@ class EVChargingEnv(gym.Env):
             self.action_map = {idx: np.array(a) for idx, a in enumerate(itertools.product(*self.actions))}
             self.action_space = gym.spaces.Discrete(len(self.action_map))
 
-        self.info = None
-
-        self.total_steps = 0
-        self.episode_over = False
-        self.evaluation_mode = False
-
-        self.charging_data = None
-        self.elec_price_data = None
-        self.durations = []
-        self.done = False
-        self.state = None
-
         # get initial state
         self.reset()
         
@@ -87,7 +85,7 @@ class EVChargingEnv(gym.Env):
 
         Returns
         -------
-        ob, reward, episode_over, info : tuple
+        ob, reward, done, info : tuple
             ob (object) :
                 an environment-specific object representing your observation of
                 the environment.
@@ -95,7 +93,7 @@ class EVChargingEnv(gym.Env):
                 amount of reward achieved by the previous action. The scale
                 varies between environments, but the goal is always to increase
                 your total reward.
-            episode_over (bool) :
+            done (bool) :
                 whether it's time to reset the environment again. Most (but not
                 all) tasks are divided up into well-defined episodes, and done
                 being True indicates the episode has terminated. (For example,
@@ -119,13 +117,13 @@ class EVChargingEnv(gym.Env):
         if not self.config.continuous_actions:
             #translate action from number to tuple
             action = self.action_map[action]
-        action = utils.scale_action(action, self.transformer_capacity)
+        if self.config.scale_actions_transformer:
+            action = utils.scale_action(action, self.transformer_capacity)
         new_state, reward = self.take_action(action)
         #translate action from number to tuple
-        episode_over = self.done
         self.info['new_state'] = new_state
-        # print(new_state)
-        return self.featurize(new_state), reward, episode_over, self.info
+        
+        return self.featurize(new_state), reward, self.done, self.info
     
     def charge_car(self, station, new_station, charge_rate):
         is_car, des_char, per_char, curr_dur =  station['is_car'], station['des_char'], station['per_char'], station['curr_dur']
@@ -152,6 +150,8 @@ class EVChargingEnv(gym.Env):
         #reset the station
         new_station['is_car'] = False
         new_station['des_char'], new_station['per_char'], new_station['curr_dur'] = 0,0,0
+        if self.config.end_after_leave and self.config.NUM_STATIONS == 1:
+            self.done = True
 
     def car_arrives(self, new_station, session):
         new_station['is_car'] = True
@@ -165,6 +165,7 @@ class EVChargingEnv(gym.Env):
         time = self.state['time']
         new_time = time + datetime.timedelta(hours=self.time_step)
         new_state['time'] = new_time
+        new_state["price"] = self.elec_price_data[new_time.to_pydatetime()]
         stations, energy_charged, percent_charged = [],[],[]
         for stn_num, station in enumerate(self.state['stations']):
             new_station = deepcopy(station)
@@ -201,7 +202,8 @@ class EVChargingEnv(gym.Env):
             # unnecessary_actions = (1 - is_car) * a_charge  # not penalize charging when full car is present
             reward -= self.config.penalize_unecessary_actions * float(sum(unnecessary_actions)) / float(self.num_stations)
         self.state = new_state
-        self.done = sum([len(loc) for loc in self.charging_data]) + sum(self.durations) == 0
+        if (not self.config.end_after_leave) or (self.config.NUM_STATIONS > 1):
+            self.done = sum([len(loc) for loc in self.charging_data]) + sum(self.durations) == 0
         return new_state, reward
 
     def get_initial_state(self):
@@ -209,6 +211,7 @@ class EVChargingEnv(gym.Env):
         initial_state = {}
         start_time = min([loc[-1][0] for loc in self.charging_data if len(loc) > 0])
         initial_state["time"] = start_time
+        initial_state["price"] = self.elec_price_data[start_time.to_pydatetime()]
         stations = []
         for loc in self.charging_data:
             station = {}
@@ -228,83 +231,60 @@ class EVChargingEnv(gym.Env):
         self.state = initial_state
         return initial_state
 
-    # Called by take_action
-    # the three arguments are lists of the given values at each station
-    def reward_exp(self, energy_charged, percent_charged, charging_powers):
-        charge_reward = sum(np.array(energy_charged) * (np.exp(percent_charged) - 1))  # sum [0, energy_charged*(e-1)] (~[0, 8.5])
+    # def reward(self, energy_charged, percent_charged, charging_powers):
+    #     if self.config.alt_reward_func:
+    #         charge_reward = np.sum(np.maximum(energy_charged, 0))
+    #
+    #         elec_price = self.elec_price_data[self.get_current_state()['time'].to_pydatetime()]
+    #         elec_cost = np.sum(np.array(energy_charged) * elec_price)
+    #         self.info['price'] = elec_price
+    #         self.info['elec_cost'] = elec_cost
+    #
+    #         pow_violation = max(np.sum(charging_powers) - self.transformer_capacity, 0) / self.transformer_capacity
+    #         pow_penalty = np.exp(pow_violation * 9) - 1
+    #
+    #         reward = [charge_reward, -elec_cost, -pow_penalty]
+    #         # print(reward)
+    #         reward = sum([r * w for r, w in zip(reward, self.reward_weights)]) / sum(self.reward_weights)
+    #         return reward
 
-        elec_price = self.elec_price_data[self.get_current_state()['time'].to_pydatetime()]
-        elec_cost = sum(np.array(energy_charged) * elec_price * (np.exp(1) - 1))  # sum [0, energy_charged*(e-1)] (~[0, 8.5])
-
-        pow_violation = max(np.sum(charging_powers) - self.transformer_capacity, 0) / self.transformer_capacity
-        pow_penalty = np.exp(pow_violation * 12) - 1  # [0, e^(10*pow_violation) - 1]  (~[0, 20])
-        # print(charge_reward, elec_cost, pow_penalty)
-
-        return self.reward_weights[0] * charge_reward - self.reward_weights[1] * elec_cost - self.reward_weights[2] * pow_penalty
-
-    # Called by take_action
-    def reward(self, energy_charged, percent_charged, charging_powers):
-        if self.config.alt_reward_func:
-            charge_reward = np.sum(np.maximum(energy_charged, 0))
-
-            elec_price = self.elec_price_data[self.get_current_state()['time'].to_pydatetime()]
-            elec_cost = np.sum(np.array(energy_charged) * elec_price)
-            self.info['price'] = elec_price
-            self.info['elec_cost'] = elec_cost
-
-            pow_violation = max(np.sum(charging_powers) - self.transformer_capacity, 0) / self.transformer_capacity
-            pow_penalty = np.exp(pow_violation * 9) - 1
-
-            reward = [charge_reward, -elec_cost, -pow_penalty]
-            # print(reward)
-            reward = sum([r * w for r, w in zip(reward, self.reward_weights)]) / sum(self.reward_weights)
-            return reward
-
+    def reward(self, energy_charged, percent_charged):
+        magnitude = self.config.reward_magnitude
         if self.config.charge_empty_factor > 0:
             charge_influence = 1.0 + self.config.charge_empty_factor * (0.5 - np.array(percent_charged))
         else:
             charge_influence = 1
 
         charge_reward = np.sum(energy_charged * charge_influence)
-        charge_reward = 1000 * charge_reward / (self.num_stations*self.time_step*self.max_power)  # [0, 1000]
-        # print("percent_charged", percent_charged)
-        # print("charge_influence", charge_influence)
-        # print("energy_charged", energy_charged)
-        # print("energy_charged * charge_influence", energy_charged * charge_influence)
-        # print("charge_reward", charge_reward)
+        charge_reward = charge_reward / (self.num_stations*self.time_step*self.max_power)  # [0, 1000]
 
         elec_price = self.elec_price_data[self.get_current_state()['time'].to_pydatetime()]
         self.info['price'] = elec_price
         elec_cost = np.sum(energy_charged) * elec_price
         #store statistics
         self.info['elec_cost'] = elec_cost
-        elec_cost = 1000 * elec_cost / (self.num_stations*self.time_step*self.max_power)  # [0, 1000] if price [0,1]
-        capa = self.transformer_capacity
-        if self.config.solar_behind_meter > 0:
-            # with elec_price as inverse of solar output, increase transformer capa relative to solar generation
-            capa = capa * (1 + self.config.solar_behind_meter * (1 - elec_price))
+        elec_cost = elec_cost / (self.num_stations*self.time_step*self.max_power)  # [0, 1000] if price [0,1]
 
-        pow_violation = (np.sum(energy_charged) / self.time_step) - capa
-        if pow_violation > 0:
-            pow_ratio = min(1, pow_violation / capa)
-            pow_penalty = np.exp(np.log(1000)*pow_ratio) - 1.0  # [0, 1000]
-        else:
-            pow_penalty = 0.0
-        assert abs(pow_penalty) < 1e-3
+        pow_penalty = 0.0
+        if not self.config.scale_actions_transformer:
+            capa = self.transformer_capacity
+            if self.config.solar_behind_meter > 0:
+                # with elec_price as inverse of solar output, increase transformer capa relative to solar generation
+                capa = capa * (1 + self.config.solar_behind_meter * (1 - elec_price))
+            pow_violation = (np.sum(energy_charged) / self.time_step) - capa
+            if pow_violation > 0:
+                pow_ratio = min(1, pow_violation / capa)
+                pow_penalty = np.exp(np.log(magnitude)*pow_ratio) - 1.0  # [0, 1000]
 
-        reward = [charge_reward, -elec_cost, -pow_penalty]
-        # print("np.sum(energy_charged, self.transformer_capacity", np.sum(energy_charged), self.transformer_capacity)
-        # print("energy_charged", energy_charged)
-        # print("percent_charged", percent_charged)
-        # print("reward", reward)
-        reward = sum([r*w for r, w in zip(reward, self.reward_weights)]) / sum(self.reward_weights)
+        reward = [magnitude*charge_reward, -1*magnitude*elec_cost, -1*pow_penalty]
+
+        reward = sum([r*w for r, w in zip(reward, self.reward_weights)])
         return reward
 
     def get_current_state(self):
         return self.state
 
     def sample_data(self):
-        # TODO don't call toy_data here but self.total_elec_price_data
         elec_price_data = toy_data.price
 
         if self.evaluation_mode:
