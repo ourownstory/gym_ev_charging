@@ -123,8 +123,8 @@ def featurize_cont(s):
     hod_single = [((s['time'].hour + s['time'].minute/60.0) / 13.0) - 1.0]
     hod_single2 = [abs(x) for x in hod_single]
     dow = one_hot(s['time'].weekday(), "dow")
-    price = s['price']
-    print(s)
+    price = [s['price']]
+    # print(s)
     is_car = []
     des_char = []
     per_char = []
