@@ -11,7 +11,7 @@ class config_default:
         self.TIME_STEP = 0.25
         self.MAX_POWER = 6.6
         self.MIN_POWER = 0.0
-        self.EPS_LEN = 4*24*3
+        self.EPS_LEN = 4*24*7
         self.EVAL_EPS_LEN = 4*24*3
 
         self.NUM_STATIONS = 1
