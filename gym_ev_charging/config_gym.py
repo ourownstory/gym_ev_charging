@@ -7,12 +7,13 @@ class config_default:
         self.discretize_obs = None
         self.do_not_featurize = False
         self.alt_reward_func = False
+        self.will_reward_func = False
 
         self.RAND_SEED = 12345
         self.TIME_STEP = 0.25
         self.MAX_POWER = 6.6
         self.MIN_POWER = 0.0
-        self.EPS_LEN = 4*24*7
+        self.EPS_LEN = 4*24*3
         self.EVAL_EPS_LEN = 4*24*3
 
         self.NUM_STATIONS = 1
@@ -34,7 +35,6 @@ class config_discrete(config_default):
         self.continuous_actions = False
         self.discretize_obs = True
         self.NUM_POWER_STEPS = 2  # [2, 10]
-
 
 class config_dc(config_discrete):
     def __init__(self):
@@ -69,6 +69,23 @@ class config_justin(config_dc):
         self.EVAL_EPS_LEN = 4 * 24 * 3
         self.REWARD_WEIGHTS = (0.55, 0.45, 0)
 
+class config_will(config_discrete):
+    def __init__(self):
+        super().__init__()
+        #self.do_not_featurize = True
+        self.will_reward_func= True
+        self.RAND_SEED = 1
+        #self.penalize_unecessary_actions = 0
+        self.NUM_STATIONS = 1
+        self.NUM_POWER_STEPS = 2  # [2, 10]
+        self.TRANSFORMER_LIMIT = 1.0
+        self.EPS_LEN = 4 * 24 * 3
+        self.EVAL_EPS_LEN = 4 * 24 * 3
+        self.charge_weight = 0.51
+        self.REWARD_WEIGHTS = (self.charge_weight, 1-self.charge_weight, 0)
+        self.alpha = 1
+        self.featurize_will = True
+
 def get_config(config_name):
     if config_name == 'discrete':
         return config_discrete()
@@ -80,4 +97,6 @@ def get_config(config_name):
         return config_cd()
     if config_name == 'justin':
         return config_justin()
+    if config_name == 'will':
+        return config_will()
 

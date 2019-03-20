@@ -110,7 +110,7 @@ def featurize_s(s):
 
 
 def featurize_cont(s):
-    # hod = one_hot(s['time'].hour, "hod")
+    hod = one_hot(s['time'].hour, "hod")
     hod = [((s['time'].hour + s['time'].minute/60.0) / 12.0) - 1.0]
     dow = one_hot(s['time'].weekday(), "dow")
     is_car = []
@@ -125,6 +125,20 @@ def featurize_cont(s):
     per_missing = (1.0 - np.array(per_char))
     missing_charge = per_missing * np.array(des_char)
     return np.concatenate((hod, dow, is_car, missing_charge, per_char, curr_dur))
+
+def featurize_will(s):
+    hod = one_hot(s['time'].hour, "hod")
+    #dow = one_hot(s['time'].weekday(), "dow")
+    is_car = []
+    des_char = []
+    per_char = []
+    curr_dur = []
+    for stn in range(len(s['stations'])):
+        is_car += one_hot(s['stations'][stn]['is_car'], "is_car")
+        des_char += one_hot(s['stations'][stn]['des_char'], "des_char")
+        per_char += one_hot(s['stations'][stn]['per_char'], "per_char")
+        curr_dur += one_hot(s['stations'][stn]['curr_dur'], "curr_dur")
+    return np.concatenate((hod, is_car, des_char, per_char, curr_dur))
 
 def scale_action(action, transformer_capacity):
     tot_charge_request = np.sum(action)

@@ -47,7 +47,10 @@ class EVChargingEnv(gym.Env):
         if config.discretize_obs:
             self.featurize = utils.featurize_s
             self.observation_dimension = 24 + 7 + 17*config.NUM_STATIONS
-        else:
+        elif config.featurize_will:
+            self.featurize = utils.featurize_will
+            self.observation_dimension = 24+ 17*config.NUM_STATIONS
+        else: 
             self.featurize = utils.featurize_cont
             self.observation_dimension = 1 + 7 + 4*config.NUM_STATIONS
             if config.do_not_featurize:
@@ -125,6 +128,7 @@ class EVChargingEnv(gym.Env):
         episode_over = self.done
         self.info['new_state'] = new_state
         # print(new_state)
+        #print (new_state, reward)
         return self.featurize(new_state), reward, episode_over, self.info
     
     def charge_car(self, station, new_station, charge_rate):
@@ -244,6 +248,29 @@ class EVChargingEnv(gym.Env):
 
     # Called by take_action
     def reward(self, energy_charged, percent_charged, charging_powers):
+        if self.config.will_reward_func:
+            charge_reward = np.sum(np.maximum(energy_charged, 0))
+            charge_reward = charge_reward/(min(self.transformer_capacity, self.num_stations*self.max_power)*self.time_step)
+
+            elec_price = self.elec_price_data[self.get_current_state()['time'].to_pydatetime()]
+            elec_cost = np.sum(np.array(energy_charged) * elec_price)/(min(self.transformer_capacity, self.num_stations*self.max_power)*self.time_step)
+            self.info['price'] = elec_price
+            self.info['elec_cost'] = elec_cost
+
+            #raise price to power
+            elec_price = elec_price**self.config.alpha if elec_price < .5 else elec_price
+            elec_cost = np.sum(np.array(energy_charged) * elec_price)/(min(self.transformer_capacity, self.num_stations*self.max_power)*self.time_step)
+
+            pow_violation = max(np.sum(charging_powers) - self.transformer_capacity, 0) / self.transformer_capacity
+            pow_penalty = np.exp(pow_violation * 9) - 1
+
+            reward = [charge_reward, -elec_cost, -pow_penalty]
+            reward = sum([r * w for r, w in zip(reward, self.reward_weights)]) / sum(self.reward_weights)
+            reward = 0.1*charge_reward + 1/(7.5*self.config.charge_weight + 0.2-7.5*reward)
+            #print(reward)
+            return reward
+
+
         if self.config.alt_reward_func:
             charge_reward = np.sum(np.maximum(energy_charged, 0))
 
