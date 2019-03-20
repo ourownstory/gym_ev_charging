@@ -8,7 +8,7 @@ class config_default:
         self.do_not_featurize = False
         self.alt_reward_func = False
 
-        self.use_delayed_charge_reward = False
+        self.use_delayed_charge_reward = False #'leave', 'full', 'full_bonus'
         self.reward_magnitude = 1.0
 
         self.RAND_SEED = 12345
@@ -66,7 +66,7 @@ class config_justin(config_dc):
         super().__init__()
         self.do_not_featurize = True
         self.alt_reward_func = True
-        self.use_delayed_charge_reward = True
+        self.use_delayed_charge_reward = "full_bonus" #False "leave" "full" "full_bonus"
 
         self.RAND_SEED = 1
         self.NUM_STATIONS = 2
