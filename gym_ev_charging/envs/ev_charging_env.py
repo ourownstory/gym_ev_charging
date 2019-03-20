@@ -56,14 +56,18 @@ class EVChargingEnv(gym.Env):
         self.eval_charging_data = utils.load_charging_data(eval_data, config.NUM_STATIONS, config.TIME_STEP)
         self.total_elec_price_data = pd.DataFrame()
 
-        if config.discretize_obs:
+        if config.obs_features == 'discrete':
             self.featurize = utils.featurize_s
             self.observation_dimension = 24 + 7 + 22*config.NUM_STATIONS
-        else:
+        elif config.obs_features == 'continuous':
             self.featurize = utils.featurize_cont
-            self.observation_dimension = 7 + 3 + 5*config.NUM_STATIONS
+            self.observation_dimension = 4 + 5*config.NUM_STATIONS
             if config.do_not_featurize:
                 self.featurize = lambda x: x
+        elif config.obs_features == 'combined':
+            self.featurize = utils.featurize_comb
+            self.observation_dimension = 24 + 7 + 4 + (22+5)*config.NUM_STATIONS
+
         self.observation_space = np.zeros(self.observation_dimension)
 
         if self.config.continuous_actions:

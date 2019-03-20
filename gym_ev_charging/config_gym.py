@@ -1,20 +1,24 @@
 
 
-class config_default:
+def get_config(name):
+    return globals()[name]()
+
+
+class Config:
     def __init__(self):
         self.ENV_NAME = None
         self.continuous_actions = None
-        self.discretize_obs = None
+        self.obs_features = "combined"  # "discrete", "continuous", "combined"
         self.do_not_featurize = False
         self.alt_reward_func = False
 
-        self.use_delayed_charge_reward = False #'leave', 'full', 'full_bonus'
+        self.use_delayed_charge_reward = False  #'leave', 'full', 'full_bonus'
         self.reward_magnitude = 1.0
-
         self.RAND_SEED = 12345
         self.TIME_STEP = 0.25
         self.MAX_POWER = 6.6
         self.MIN_POWER = 0.0
+
         self.EPS_LEN = 4*24*3
         self.EVAL_EPS_LEN = self.EPS_LEN
 
@@ -24,44 +28,44 @@ class config_default:
         self.solar_behind_meter = 0  # [0, (1 - TRANSFORMER_LIMIT) / TRANSFORMER_LIMIT]
         self.charge_empty_factor = 0  # [0, 2]
 
-        self.REWARD_WEIGHTS = (1, 0, 0)
+        self.REWARD_WEIGHTS = (1, 1, 0)
         self.penalize_unecessary_actions = 0
-        self.charge_reward_at_leave = True
         self.end_after_leave = True  # only affects when training on single station
 
         self.train_file = "train_sessions_161718_95014_top10.csv"
         self.eval_file = "eval_sessions_161718_95014_top10.csv"
 
 
-class config_discrete(config_default):
+class Discrete(Config):
     def __init__(self):
         super().__init__()
         self.ENV_NAME = "ev-charging-v0"
-        self.continuous_actions = False
+        # self.obs_features = "discrete"  # default combined
         self.discretize_obs = True
         self.NUM_POWER_STEPS = 2  # [2, 10]
 
 
-class config_dc(config_discrete):
+class DC(Discrete):
     def __init__(self):
         super().__init__()
-        self.discretize_obs = False
+        self.obs_features = "continuous"
 
 
-class config_cont(config_default):
+class Continuous(Config):
     def __init__(self):
         super().__init__()
         self.ENV_NAME = "ev-charging-v0"
         self.continuous_actions = True
-        self.discretize_obs = False
+        # self.obs_features = "continuous"   # default combined
 
 
-class config_cd(config_cont):
+class CD(Continuous):
     def __init__(self):
         super().__init__()
-        self.discretize_obs = True
+        self.obs_features = "discrete"
 
-class config_justin(config_dc):
+
+class Justin(DC):
     def __init__(self):
         super().__init__()
         self.do_not_featurize = True
@@ -79,15 +83,23 @@ class config_justin(config_dc):
         self.penalize_unecessary_actions = 0
         self.reward_magnitude = 1.0
 
-def get_config(config_name):
-    if config_name == 'discrete':
-        return config_discrete()
-    if config_name == 'cont':
-        return config_cont()
-    if config_name == 'DC':
-        return config_dc()
-    if config_name == 'CD':
-        return config_cd()
-    if config_name == 'justin':
-        return config_justin()
 
+class Single(Discrete):
+    def __init__(self):
+        super().__init__()
+        self.use_delayed_charge_reward = "full"  #'leave', 'full', 'full_bonus'
+
+        self.EPS_LEN = 4*24
+        self.EVAL_EPS_LEN = self.EPS_LEN
+
+        self.NUM_STATIONS = 1
+        self.TRANSFORMER_LIMIT = 1  # [0, 1]
+        self.scale_actions_transformer = True
+
+        self.solar_behind_meter = 0  # [0, (1 - TRANSFORMER_LIMIT) / TRANSFORMER_LIMIT]
+        self.charge_empty_factor = 0  # [0, 2]
+
+        self.REWARD_WEIGHTS = (1, 1, 0)
+
+        self.penalize_unecessary_actions = 0
+        self.end_after_leave = True  # only affects when training on single station

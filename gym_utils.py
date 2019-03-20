@@ -118,13 +118,15 @@ def featurize_s(s):
     return featurized
 
 
-def featurize_cont(s):
+def featurize_cont(s, dow_one_hot=False):
     # hod = one_hot(s['time'].hour, "hod")
     hod_single = [((s['time'].hour + s['time'].minute/60.0) / 13.0) - 1.0]
     hod_single2 = [abs(x) for x in hod_single]
-    dow = one_hot(s['time'].weekday(), "dow")
+    if dow_one_hot:
+        dow = one_hot(s['time'].weekday(), "dow")
+    else:
+        dow = [s['time'].weekday() < 5]  # is weekday
     price = [s['price']]
-    # print(s)
     is_car = []
     des_char = []
     per_char = []
@@ -139,6 +141,13 @@ def featurize_cont(s):
     featurized = np.concatenate(
         (dow, hod_single, hod_single2, price, is_car, des_char, missing_charge, per_missing, curr_dur)
     )
+    return featurized
+
+
+def featurize_comb(s):
+    discrete = featurize_s(s)
+    continuous = featurize_cont(s, dow_one_hot=False)
+    featurized = np.concatenate((continuous, discrete))
     return featurized
 
 
