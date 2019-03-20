@@ -15,7 +15,7 @@ class config_default:
         self.MAX_POWER = 6.6
         self.MIN_POWER = 0.0
         self.EPS_LEN = 4*24*3
-        self.EVAL_EPS_LEN = 4*24*3
+        self.EVAL_EPS_LEN = self.EPS_LEN
 
         self.NUM_STATIONS = 1
         self.TRANSFORMER_LIMIT = 0.1  # [0, 1]
@@ -25,7 +25,7 @@ class config_default:
 
         self.REWARD_WEIGHTS = (1, 0, 0)
         self.penalize_unecessary_actions = 0
-
+        self.charge_reward_at_leave = True
         self.end_after_leave = True  # only affects when training on single station
 
         self.train_file = "train_sessions_161718_95014_top10.csv"
