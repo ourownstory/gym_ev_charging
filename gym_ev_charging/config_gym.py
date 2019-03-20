@@ -98,7 +98,7 @@ class Single(Discrete):
         self.TRANSFORMER_LIMIT = 1  # [0, 1]
         self.scale_actions_transformer = True
 
-        self.REWARD_WEIGHTS = (1, 1, 0)
+        self.REWARD_WEIGHTS = (1, 0, 0)
 
         self.end_after_leave = True  # only affects when training on single station
 

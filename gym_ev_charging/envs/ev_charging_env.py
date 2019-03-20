@@ -201,13 +201,13 @@ class EVChargingEnv(gym.Env):
             energy_charged=energy_charged,
             percent_charged=percent_charged,
         )
-        if self.config.penalize_unecessary_actions > 0:
-            is_car = np.array([int(station['is_car']) for station in self.state['stations']])
-            not_full = np.array([int(p < 1.0) for p in percent_charged])
-            a_charge = np.array([int(a > 0.1) for a in actions])
-            unnecessary_actions = (1 - (is_car*not_full)) * a_charge
-            # unnecessary_actions = (1 - is_car) * a_charge  # not penalize charging when full car is present
-            reward -= self.config.penalize_unecessary_actions * float(sum(unnecessary_actions)) / float(self.num_stations)
+        # if self.config.penalize_unecessary_actions > 0:
+            # is_car = np.array([int(station['is_car']) for station in self.state['stations']])
+            # not_full = np.array([int(p < 1.0) for p in percent_charged])
+            # a_charge = np.array([int(a > 0.1) for a in actions])
+            # unnecessary_actions = (1 - (is_car*not_full)) * a_charge
+            # # unnecessary_actions = (1 - is_car) * a_charge  # not penalize charging when full car is present
+            # reward -= self.config.penalize_unecessary_actions * float(sum(unnecessary_actions)) / float(self.num_stations)
         self.state = new_state
         if (not self.config.end_after_leave) or (self.config.NUM_STATIONS > 1):
             self.done = sum([len(loc) for loc in self.charging_data]) + sum(self.durations) == 0
@@ -238,23 +238,6 @@ class EVChargingEnv(gym.Env):
         self.state = initial_state
         return initial_state
 
-    # def reward(self, energy_charged, percent_charged, charging_powers):
-    #     if self.config.alt_reward_func:
-    #         charge_reward = np.sum(np.maximum(energy_charged, 0))
-    #
-    #         elec_price = self.elec_price_data[self.get_current_state()['time'].to_pydatetime()]
-    #         elec_cost = np.sum(np.array(energy_charged) * elec_price)
-    #         self.info['price'] = elec_price
-    #         self.info['elec_cost'] = elec_cost
-    #
-    #         pow_violation = max(np.sum(charging_powers) - self.transformer_capacity, 0) / self.transformer_capacity
-    #         pow_penalty = np.exp(pow_violation * 9) - 1
-    #
-    #         reward = [charge_reward, -elec_cost, -pow_penalty]
-    #         # print(reward)
-    #         reward = sum([r * w for r, w in zip(reward, self.reward_weights)]) / sum(self.reward_weights)
-    #         return reward
-
     def reward(self, energy_charged, percent_charged):
         # charging_powers = print(self.info['charge_rates'])
         magnitude = self.config.reward_magnitude
@@ -266,14 +249,14 @@ class EVChargingEnv(gym.Env):
         if self.config.use_delayed_charge_reward == "leave":
             charge_reward = 0
             for i in range(self.num_stations):
-                self.delayed_charge_reward[i] += energy_charged[i] * charge_influence
-                if not self.get_current_state()['stations'][i]['is_car']:
+                self.delayed_charge_reward[i] += energy_charged[i]
+                if self.done or not self.get_current_state()['stations'][i]['is_car']:
                     charge_reward += self.delayed_charge_reward[i]
                     self.delayed_charge_reward[i] = 0
         elif self.config.use_delayed_charge_reward == "full":
             charge_reward = 0
             for i in range(self.num_stations):
-                self.delayed_charge_reward[i] += energy_charged[i] * charge_influence
+                self.delayed_charge_reward[i] += energy_charged[i]
                 if percent_charged[i] >= 1.0 and energy_charged[i] > 0:
                     charge_reward += self.delayed_charge_reward[i]
                     self.delayed_charge_reward[i] = 0
