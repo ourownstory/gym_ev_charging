@@ -1,6 +1,0 @@
-README.md
-gym_ev_charging.egg-info/PKG-INFO
-gym_ev_charging.egg-info/SOURCES.txt
-gym_ev_charging.egg-info/dependency_links.txt
-gym_ev_charging.egg-info/requires.txt
-gym_ev_charging.egg-info/top_level.txt
