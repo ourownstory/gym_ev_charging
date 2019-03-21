@@ -3,4 +3,5 @@
 results/*
 *.egg-info
 *.swp
+data/*
 
