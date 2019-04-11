@@ -14,7 +14,8 @@ from data import toy_data
 
 
 class EVChargingEnv(gym.Env):
-    """
+    """EVChargingEnv implements an OpenAI Gym Environment that simulates car arrivals, departures, and charging
+    decisions from real data.
 
     """
     # metadata = {'render.modes': ['human']}
@@ -31,6 +32,11 @@ class EVChargingEnv(gym.Env):
         self.state = None
 
     def build(self, config=None):
+        """
+        Builds the environment based on the settings in config
+        :param config:
+        :return:
+        """
         if config is None:
             config = get_config('default')
         self.config = config
@@ -133,6 +139,13 @@ class EVChargingEnv(gym.Env):
         return self.featurize(new_state), reward, self.done, self.info
     
     def charge_car(self, station, new_station, charge_rate):
+        """
+        Charges the car that was present at station
+        :param station: (dictionary) contains old station attributes
+        :param new_station: (dictionary) contains to be updated station attributes
+        :param charge_rate: (float)
+        :return: (float) amount of energy charged to the car
+        """
         is_car, des_char, per_char, curr_dur =  station['is_car'], station['des_char'], station['per_char'], station['curr_dur']
         new_station['is_car'] = True
         new_station['des_char'] = des_char
@@ -151,6 +164,11 @@ class EVChargingEnv(gym.Env):
         return energy_added
     
     def car_leaves(self, new_station):
+        """
+        Handles a car leaving at the current time step
+        :param new_station: (dictionary) contains to be updated station attributes
+        :return:
+        """
         #compute statistics for self.info
         total_energy = new_station['des_char']*new_station['per_char']
         best_possible_energy = min(new_station['curr_dur']*self.max_power, new_station['des_char'])
@@ -163,12 +181,23 @@ class EVChargingEnv(gym.Env):
             self.done = True
 
     def car_arrives(self, new_station, session):
+        """
+        Handles a new car arriving at the current time step
+        :param new_station: (dictionary) contains to be updated station attributes
+        :param session: (list) charging data for new charging session
+        :return:
+        """
         new_station['is_car'] = True
         new_station['des_char'] = session[1]
         new_station['per_char'] = 0
         new_station['curr_dur'] = 0
     
     def take_action(self, actions):
+        """
+        Charges the cars at each station as specified by the charging rates in actions
+        :param actions: (list) charge rates at each station as specified by the controller
+        :return: new state (dict) and reward (float) of taking the charging actions
+        """
         # print(self.state)
         new_state = {}
         time = self.state['time']
@@ -215,6 +244,10 @@ class EVChargingEnv(gym.Env):
         return new_state, reward
 
     def get_initial_state(self):
+        """
+        Sets the initial state based on the earliest charging session in self.charging_data
+        :return:
+        """
         ## get_start_time
         initial_state = {}
         start_time = min([loc[-1][0] for loc in self.charging_data if len(loc) > 0])
@@ -240,6 +273,12 @@ class EVChargingEnv(gym.Env):
         return initial_state
 
     def reward(self, energy_charged, percent_charged):
+        """
+        Calculates the reward based on the energy charged at each station during the time step and the percent charged
+        :param energy_charged: (list) energy charged at each station during the time step
+        :param percent_charged: (list) percent charged for each car at each station
+        :return: the reward for the current time step
+        """
         # charging_powers = print(self.info['charge_rates'])
         magnitude = self.config.reward_magnitude
         if self.config.charge_empty_factor > 0:
@@ -299,9 +338,18 @@ class EVChargingEnv(gym.Env):
         return reward
 
     def get_current_state(self):
+        """
+        Returns the current state
+        :return: state (dict) the current state
+        """
         return self.state
 
     def sample_data(self):
+        """
+        Samples a given time period (based on config.EVAL_EPS_LEN) of data to simulate over.
+        Samples from evaluation data depending on self.evaluation_mode
+        :return: returns the charging data and electric price data over the given time period
+        """
         elec_price_data = toy_data.price
 
         if self.evaluation_mode:
@@ -321,6 +369,10 @@ class EVChargingEnv(gym.Env):
         return charging_data, elec_price_data
 
     def reset(self):
+        """
+        Resets the environment
+        :return:
+        """
         self.done = False
         self.info = None
         self.durations = []
@@ -331,11 +383,14 @@ class EVChargingEnv(gym.Env):
         return featurized_state
 
     def render(self, mode='human', close=False):
+        """Used for vizualizing charging, not implemented"""
         pass
 
     def close(self):
+        """Not implemented"""
         pass
 
     def seed(self, seed=None):
+        """Not implemente"""
         # return self.seed(seed)
         pass
